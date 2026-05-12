@@ -125,13 +125,12 @@ export function BatchRunner({ samples }: { samples: SampleScenario[] }) {
                     : "border-slate-200 bg-white"
                 }`}
               >
-                <label className="flex cursor-pointer items-start gap-3">
+                <label className="flex cursor-pointer items-start gap-3 rounded-md focus-within:ring-2 focus-within:ring-[var(--accent)] focus-within:ring-offset-1">
                   <input
                     type="checkbox"
                     className="mt-1 h-4 w-4"
                     checked={checked}
                     onChange={() => toggle(sample.id)}
-                    aria-label={`Include ${sample.label}`}
                   />
                   <div className="min-w-0">
                     <div className="text-sm font-medium">{sample.label}</div>
@@ -150,7 +149,7 @@ export function BatchRunner({ samples }: { samples: SampleScenario[] }) {
             type="button"
             onClick={handleRun}
             disabled={busy || selectedSamples.length === 0}
-            className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] disabled:opacity-50"
+            className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 disabled:opacity-50"
           >
             {busy
               ? `Running ${selectedSamples.length} verification${
@@ -164,7 +163,7 @@ export function BatchRunner({ samples }: { samples: SampleScenario[] }) {
               setSelectedIds(new Set(samples.map((s) => s.id)))
             }
             disabled={busy}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 disabled:opacity-50"
           >
             Select all
           </button>
@@ -172,7 +171,7 @@ export function BatchRunner({ samples }: { samples: SampleScenario[] }) {
             type="button"
             onClick={() => setSelectedIds(new Set())}
             disabled={busy}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 disabled:opacity-50"
           >
             Clear
           </button>
@@ -186,6 +185,14 @@ export function BatchRunner({ samples }: { samples: SampleScenario[] }) {
             {error}
           </div>
         ) : null}
+
+        <p aria-live="polite" className="sr-only">
+          {busy
+            ? `Running batch of ${selectedSamples.length} verifications.`
+            : response
+              ? `Batch complete. ${response.counts.success} passed, ${response.counts.failed} failed.`
+              : ""}
+        </p>
       </section>
 
       {response ? (
@@ -214,7 +221,7 @@ function BatchResults({
     <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-base font-semibold">Batch results</h2>
-        <div className="text-xs text-slate-600">
+        <div className="text-xs text-slate-600 tabular-nums">
           {counts.success} passed · {counts.failed} failed · total{" "}
           {(durationMs / 1000).toFixed(2)}s · avg {(avgMs / 1000).toFixed(2)}s
           /item · concurrency {concurrency}
@@ -271,7 +278,7 @@ function BatchResults({
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2 align-top text-xs text-slate-600">
+                  <td className="px-4 py-2 align-top text-xs text-slate-600 tabular-nums">
                     {(r.durationMs / 1000).toFixed(2)}s
                   </td>
                   <td className="px-4 py-2 align-top text-right">

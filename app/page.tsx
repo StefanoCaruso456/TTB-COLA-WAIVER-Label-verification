@@ -31,13 +31,13 @@ export default async function HomePage() {
         <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/batch"
-            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
           >
             Run batch
           </Link>
           <Link
             href="/new"
-            className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm text-[var(--accent-foreground)]"
+            className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm text-[var(--accent-foreground)] hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
           >
             + New verification
           </Link>

@@ -20,19 +20,19 @@ export function AppShell({ children }: { children: ReactNode }) {
           <nav className="flex items-center gap-2">
             <Link
               href="/"
-              className="px-3 py-1.5 text-sm rounded-md hover:bg-slate-100"
+              className="px-3 py-1.5 text-sm rounded-md hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             >
               History
             </Link>
             <Link
               href="/batch"
-              className="px-3 py-1.5 text-sm rounded-md hover:bg-slate-100"
+              className="px-3 py-1.5 text-sm rounded-md hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             >
               Batch
             </Link>
             <Link
               href="/new"
-              className="px-3 py-1.5 text-sm rounded-md bg-[var(--accent)] text-[var(--accent-foreground)] hover:opacity-95"
+              className="px-3 py-1.5 text-sm rounded-md bg-[var(--accent)] text-[var(--accent-foreground)] hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             >
               New verification
             </Link>

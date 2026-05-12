@@ -214,6 +214,10 @@ gitignored — only shared skill content is tracked.
 
 ## Future improvements
 
+See [`docs/implementation-roadmap.md`](docs/implementation-roadmap.md) for the
+brief-aligned, prioritised plan. The bullets below are the longer speculative
+list (not all driven by stakeholder requirements).
+
 - Replace metadata-only image storage with S3-compatible object storage.
 - Add LangGraph-based orchestration only if/when batch review,
   human-in-the-loop, or retry loops become first-class requirements.

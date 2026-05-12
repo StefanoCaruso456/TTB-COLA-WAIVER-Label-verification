@@ -175,6 +175,31 @@ docs/
   assumptions-and-limitations.md
 ```
 
+## Agent skills
+
+This repo bundles a few [open agent skills](https://skills.sh) that help
+when iterating on the UI and on extensibility. Skills are checked in
+under `.claude/skills/` (for Claude Code) and `.agents/skills/` (for
+non-Claude agents). The exact source + version of each skill is pinned
+in [`skills-lock.json`](skills-lock.json).
+
+| Skill | Source | What it's for |
+| --- | --- | --- |
+| `find-skills` | `vercel-labs/skills` | Discover and install additional skills when the team needs new capabilities. |
+| `frontend-design` | `anthropics/skills` | Distinctive, production-grade frontend design guidance when iterating on the new-verification UI. |
+| `web-design-guidelines` | `vercel-labs/agent-skills` | Review UI code against Vercel's Web Interface Guidelines (accessibility, UX, layout). |
+
+Manage skills with the [Skills CLI](https://skills.sh):
+
+```bash
+npx skills list                        # what's installed
+npx skills update -p                   # update project skills
+npx skills add <owner/repo> -s <name>  # add another skill
+```
+
+Per-user permission grants (`.claude/settings.local.json`) are
+gitignored — only shared skill content is tracked.
+
 ## Limitations
 
 - **No COLAs integration.** Nothing is submitted to TTB from this tool.

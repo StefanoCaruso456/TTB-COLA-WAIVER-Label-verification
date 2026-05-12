@@ -1,0 +1,51 @@
+{
+  "id": "wine-valid",
+  "label": "Wine — clean pass",
+  "description": "Domestic red wine that should pass the deterministic checks.",
+  "clientName": "Cypress Hills Cellars",
+  "applicantName": "Maria Reyes",
+  "productName": "Estate Cabernet",
+  "application": {
+    "applicationTypeStep": {
+      "productType": "wine",
+      "sourceOfProduct": "domestic",
+      "applicationType": "certificate_of_label_approval",
+      "isResubmission": false
+    },
+    "colaInformationStep": {
+      "brandName": "Cypress Hills Cellars",
+      "fancifulName": "Estate Cabernet",
+      "netContents": ["750 mL"],
+      "alcoholContent": "13.5% Alc./Vol.",
+      "countryOfOrigin": "United States",
+      "nameAndAddress": "Bottled by Cypress Hills Cellars, Napa, CA",
+      "wine": {
+        "vintageYear": 2021,
+        "appellation": "Napa Valley",
+        "grapeVarietals": ["Cabernet Sauvignon"],
+        "sulfiteDeclarationExpected": true,
+        "containsSulfites": true
+      }
+    },
+    "uploadLabelsStep": {
+      "labelImages": [
+        {
+          "id": "sample-img-1",
+          "fileName": "cypress-hills-brand.jpg",
+          "mimeType": "image/jpeg",
+          "size": 245000,
+          "labelImageType": "brand"
+        }
+      ]
+    }
+  },
+  "images": [
+    {
+      "id": "sample-img-1",
+      "fileName": "cypress-hills-brand.jpg",
+      "mimeType": "image/jpeg",
+      "size": 245000,
+      "labelImageType": "brand"
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "id": "spirits-valid",
+  "label": "Spirits — clean pass",
+  "description": "Domestic bourbon whiskey that should pass automated checks with a same-field-of-vision review flag.",
+  "clientName": "Wildwood Distillery",
+  "applicantName": "James Becker",
+  "productName": "Wildwood Bourbon",
+  "application": {
+    "applicationTypeStep": {
+      "productType": "distilled_spirits",
+      "sourceOfProduct": "domestic",
+      "applicationType": "certificate_of_label_approval",
+      "isResubmission": false
+    },
+    "colaInformationStep": {
+      "brandName": "Wildwood",
+      "fancifulName": "Wildwood Bourbon",
+      "netContents": ["750 mL"],
+      "alcoholContent": "45% Alc./Vol.",
+      "nameAndAddress": "Distilled by Wildwood Distillery, Louisville, KY",
+      "distilledSpirits": {
+        "ageStatement": "Aged 4 Years",
+        "stateOfDistillation": "Kentucky"
+      }
+    },
+    "uploadLabelsStep": {
+      "labelImages": [
+        {
+          "id": "sample-img-1",
+          "fileName": "wildwood-front.jpg",
+          "mimeType": "image/jpeg",
+          "size": 312000,
+          "labelImageType": "brand"
+        },
+        {
+          "id": "sample-img-2",
+          "fileName": "wildwood-back.jpg",
+          "mimeType": "image/jpeg",
+          "size": 288000,
+          "labelImageType": "back"
+        }
+      ]
+    }
+  },
+  "images": [
+    {
+      "id": "sample-img-1",
+      "fileName": "wildwood-front.jpg",
+      "mimeType": "image/jpeg",
+      "size": 312000,
+      "labelImageType": "brand"
+    },
+    {
+      "id": "sample-img-2",
+      "fileName": "wildwood-back.jpg",
+      "mimeType": "image/jpeg",
+      "size": 288000,
+      "labelImageType": "back"
+    }
+  ]
+}

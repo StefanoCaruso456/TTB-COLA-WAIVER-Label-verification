@@ -1,0 +1,51 @@
+{
+  "id": "imported-missing-origin",
+  "label": "Imported wine — missing country of origin",
+  "description": "Imported French wine where the label is missing the country of origin statement.",
+  "clientName": "Maison Lafitte",
+  "applicantName": "Antoine Garnier",
+  "productName": "Côtes du Rhône",
+  "mockScenario": "imported-missing-origin",
+  "application": {
+    "applicationTypeStep": {
+      "productType": "wine",
+      "sourceOfProduct": "imported",
+      "applicationType": "certificate_of_label_approval",
+      "isResubmission": false
+    },
+    "colaInformationStep": {
+      "brandName": "Maison Lafitte",
+      "netContents": ["750 mL"],
+      "alcoholContent": "13.5% Alc./Vol.",
+      "countryOfOrigin": "France",
+      "nameAndAddress": "Imported by Lafitte USA Inc., New York, NY",
+      "wine": {
+        "vintageYear": 2020,
+        "appellation": "Côtes du Rhône",
+        "grapeVarietals": ["Grenache", "Syrah", "Mourvèdre"],
+        "sulfiteDeclarationExpected": true,
+        "containsSulfites": true
+      }
+    },
+    "uploadLabelsStep": {
+      "labelImages": [
+        {
+          "id": "sample-img-1",
+          "fileName": "lafitte-front.jpg",
+          "mimeType": "image/jpeg",
+          "size": 222000,
+          "labelImageType": "brand"
+        }
+      ]
+    }
+  },
+  "images": [
+    {
+      "id": "sample-img-1",
+      "fileName": "lafitte-front.jpg",
+      "mimeType": "image/jpeg",
+      "size": 222000,
+      "labelImageType": "brand"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "id": "malt-valid",
+  "label": "Malt beverage — clean pass",
+  "description": "Domestic lager with required ingredient disclosures.",
+  "clientName": "Hopforth Brewing Co.",
+  "applicantName": "Devon Holloway",
+  "productName": "Hopforth Lager",
+  "application": {
+    "applicationTypeStep": {
+      "productType": "malt_beverage",
+      "sourceOfProduct": "domestic",
+      "applicationType": "certificate_of_label_approval",
+      "isResubmission": false
+    },
+    "colaInformationStep": {
+      "brandName": "Hopforth",
+      "netContents": ["355 mL"],
+      "alcoholContent": "5.0% Alc./Vol.",
+      "nameAndAddress": "Brewed by Hopforth Brewing Co., Asheville, NC",
+      "maltBeverage": {
+        "containsSulfites": true,
+        "alcoholContentRequiredBecauseOfFlavorOrAddedIngredients": false
+      }
+    },
+    "uploadLabelsStep": {
+      "labelImages": [
+        {
+          "id": "sample-img-1",
+          "fileName": "hopforth-can.jpg",
+          "mimeType": "image/jpeg",
+          "size": 165000,
+          "labelImageType": "brand"
+        }
+      ]
+    }
+  },
+  "images": [
+    {
+      "id": "sample-img-1",
+      "fileName": "hopforth-can.jpg",
+      "mimeType": "image/jpeg",
+      "size": 165000,
+      "labelImageType": "brand"
+    }
+  ]
+}

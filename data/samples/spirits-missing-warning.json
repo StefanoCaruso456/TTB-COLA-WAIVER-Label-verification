@@ -1,0 +1,46 @@
+{
+  "id": "spirits-missing-warning",
+  "label": "Spirits — missing government warning",
+  "description": "Whiskey where the mandatory government warning is absent on the label.",
+  "clientName": "Hollow Creek Distillery",
+  "applicantName": "Cassie Park",
+  "productName": "Hollow Creek Rye",
+  "mockScenario": "missing-warning",
+  "application": {
+    "applicationTypeStep": {
+      "productType": "distilled_spirits",
+      "sourceOfProduct": "domestic",
+      "applicationType": "certificate_of_label_approval",
+      "isResubmission": false
+    },
+    "colaInformationStep": {
+      "brandName": "Hollow Creek",
+      "netContents": ["750 mL"],
+      "alcoholContent": "40% Alc./Vol.",
+      "distilledSpirits": {
+        "ageStatement": "Aged 3 Years",
+        "stateOfDistillation": "Tennessee"
+      }
+    },
+    "uploadLabelsStep": {
+      "labelImages": [
+        {
+          "id": "sample-img-1",
+          "fileName": "hollow-creek-front.jpg",
+          "mimeType": "image/jpeg",
+          "size": 245000,
+          "labelImageType": "brand"
+        }
+      ]
+    }
+  },
+  "images": [
+    {
+      "id": "sample-img-1",
+      "fileName": "hollow-creek-front.jpg",
+      "mimeType": "image/jpeg",
+      "size": 245000,
+      "labelImageType": "brand"
+    }
+  ]
+}

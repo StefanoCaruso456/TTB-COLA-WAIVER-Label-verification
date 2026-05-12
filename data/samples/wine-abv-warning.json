@@ -1,0 +1,50 @@
+{
+  "id": "wine-abv-warning",
+  "label": "Wine — ABV mismatch",
+  "description": "Wine where the extracted ABV does not match the application.",
+  "clientName": "Old Tom Vineyards",
+  "applicantName": "Sam Whitaker",
+  "productName": "Reserve Pinot",
+  "mockScenario": "abv-mismatch",
+  "application": {
+    "applicationTypeStep": {
+      "productType": "wine",
+      "sourceOfProduct": "domestic",
+      "applicationType": "certificate_of_label_approval",
+      "isResubmission": false
+    },
+    "colaInformationStep": {
+      "brandName": "Old Tom Vineyards",
+      "netContents": ["750 mL"],
+      "alcoholContent": "13.0% Alc./Vol.",
+      "countryOfOrigin": "United States",
+      "wine": {
+        "vintageYear": 2022,
+        "appellation": "Willamette Valley",
+        "grapeVarietals": ["Pinot Noir"],
+        "sulfiteDeclarationExpected": true,
+        "containsSulfites": true
+      }
+    },
+    "uploadLabelsStep": {
+      "labelImages": [
+        {
+          "id": "sample-img-1",
+          "fileName": "old-tom-brand.jpg",
+          "mimeType": "image/jpeg",
+          "size": 198000,
+          "labelImageType": "brand"
+        }
+      ]
+    }
+  },
+  "images": [
+    {
+      "id": "sample-img-1",
+      "fileName": "old-tom-brand.jpg",
+      "mimeType": "image/jpeg",
+      "size": 198000,
+      "labelImageType": "brand"
+    }
+  ]
+}

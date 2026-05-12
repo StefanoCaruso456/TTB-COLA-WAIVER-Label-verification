@@ -28,12 +28,20 @@ export default async function HomePage() {
             human-reviewable verification.
           </p>
         </div>
-        <Link
-          href="/new"
-          className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm text-[var(--accent-foreground)]"
-        >
-          + New verification
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/batch"
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+          >
+            Run batch
+          </Link>
+          <Link
+            href="/new"
+            className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm text-[var(--accent-foreground)]"
+          >
+            + New verification
+          </Link>
+        </div>
       </div>
 
       {dbError ? (

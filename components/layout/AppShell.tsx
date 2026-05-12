@@ -25,6 +25,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               History
             </Link>
             <Link
+              href="/batch"
+              className="px-3 py-1.5 text-sm rounded-md hover:bg-slate-100"
+            >
+              Batch
+            </Link>
+            <Link
               href="/new"
               className="px-3 py-1.5 text-sm rounded-md bg-[var(--accent)] text-[var(--accent-foreground)] hover:opacity-95"
             >

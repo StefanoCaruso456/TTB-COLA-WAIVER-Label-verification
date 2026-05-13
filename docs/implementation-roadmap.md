@@ -112,6 +112,34 @@ the README and `docs/architecture.md` for the implemented surface.
 - **Acceptance:** No P0/P1 violations remain on `/`, `/new`, `/batch`,
   `/verification/[id]`.
 
+### Task 6 — End-to-end verification suite
+
+- **Goal:** Prove every shipped feature works end-to-end without external
+  services. Unit tests alone are insufficient — they don't catch wiring bugs
+  between route handlers, the orchestrator, the mock extractor, persistence,
+  and the UI.
+- **Approach:** Three layers, all hermetic:
+  - **API integration** (Vitest): mock `@/lib/prisma` with an in-memory store,
+    import each route handler directly, exercise happy paths + error codes for
+    `/api/verify`, `/api/verify/batch`, `/api/verifications`,
+    `/api/verifications/[id]`.
+  - **Live HTTP smoke** (`scripts/e2e-smoke.mjs`): boots `next dev` with
+    `PRISMA_MOCK=true USE_MOCK_EXTRACTION=true` and hits every endpoint with
+    `fetch`. Survives in firewalled environments where Playwright's browser
+    binary can't be downloaded.
+  - **Browser E2E** (Playwright): Chromium specs for `/`, `/new`, `/batch`,
+    `/verification/[id]` against the same `PRISMA_MOCK`-backed dev server.
+  - Wrap the three suites in a `.claude/skills/e2e-test/SKILL.md` runbook so
+    `/e2e-test` runs them in order and reports a single summary.
+  - Add `PRISMA_MOCK` toggle to `lib/prisma.ts` (rejected in production) so
+    the Playwright + smoke runs don't need Postgres.
+- **Files:** `tests/e2e/_helpers/*.ts`, `tests/e2e/api-*.test.ts`,
+  `tests/e2e/browser/*.spec.ts`, `playwright.config.ts`, `scripts/e2e-smoke.mjs`,
+  `lib/prisma-mock.ts`, `.claude/skills/e2e-test/SKILL.md`.
+- **Acceptance:** `npm test` 76/76 green; `npm run test:smoke` exits 0 with
+  every endpoint check passing; Playwright specs run when Chromium is
+  available; skill discoverable as `/e2e-test`.
+
 ## Out of this roadmap
 
 Anything not driven by the brief stays in `pre-research-decisions.md` §24 and

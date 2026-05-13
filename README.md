@@ -81,6 +81,7 @@ still run verifications from `/new` and see reports.
 | `USE_MOCK_EXTRACTION` | `true` forces the mock extractor; otherwise Gemini is used (falling back to mock if no key). |
 | `GEMINI_MODEL` | Gemini model id (default `gemini-2.5-flash`). |
 | `MAX_LABEL_IMAGES` | Upper bound on images per verification (default 10). |
+| `PRISMA_MOCK` | `true` swaps the Prisma client for an in-memory store (non-production only). Used by `npm run test:smoke` and `npm run test:e2e`. |
 
 ## Sample scenarios
 
@@ -98,20 +99,46 @@ Sample JSON lives in [`data/samples/`](data/samples).
 
 ## Testing
 
+Three layers, none of which need Postgres or a Gemini key:
+
 ```bash
+# 1. Unit + API integration (Vitest)
 npm test
+
+# 2. Live HTTP smoke (boots `next dev` with PRISMA_MOCK + USE_MOCK_EXTRACTION)
+npm run test:smoke
+
+# 3. Browser E2E (Playwright; one-time Chromium install)
+npm run test:e2e:install
+npm run test:e2e
 ```
 
-Tests cover deterministic logic only — the AI/Gemini call paths are not
-asserted against a live model:
+What each layer covers:
 
-- `normalizeText`, `similarity`
-- `compareBrand`, `compareAlcoholContent`, `compareVolumes`,
-  `compareGovernmentWarning`, `compareCountryOfOrigin`
-- `resolveCommodityIntent`
-- Zod cross-field validation on `colaApplicationSchema`
-- End-to-end `verifyApplication` against the mock extractor for the
-  documented sample scenarios
+- **`npm test`** — deterministic comparators (`normalizeText`, `similarity`,
+  `compareBrand`, `compareAlcoholContent`, `compareVolumes`,
+  `compareGovernmentWarning`, `compareCountryOfOrigin`), `resolveCommodityIntent`,
+  Zod cross-field validation, end-to-end `verifyApplication` against the mock
+  extractor for every sample scenario, the batch orchestrator with bounded
+  concurrency, **and** the API routes themselves (`/api/verify`,
+  `/api/verify/batch`, `/api/verifications`, `/api/verifications/[id]`) with a
+  mocked Prisma store. ~76 tests, runs in seconds.
+- **`npm run test:smoke`** — boots a real Next.js dev server with
+  `PRISMA_MOCK=true USE_MOCK_EXTRACTION=true`, then hits every public route
+  and asserts response shapes. Useful when Playwright's Chromium can't be
+  downloaded (firewalled CI, sandboxes).
+- **`npm run test:e2e`** — Playwright specs for `/`, `/new`, `/batch`,
+  `/verification/[id]` driving the rendered UI. Requires `chromium` via
+  `npm run test:e2e:install` (`~150MB`).
+
+The whole thing is wrapped in the `e2e-test` agent skill — invoke it via
+`/e2e-test` to run the suites in order and get a single pass/fail summary.
+
+### PRISMA_MOCK
+
+Set `PRISMA_MOCK=true` in non-production environments to swap the real
+Prisma client for an in-memory store. Useful for demos and the test suites.
+The toggle is ignored when `NODE_ENV=production`.
 
 ## Verification status model
 
@@ -188,6 +215,7 @@ in [`skills-lock.json`](skills-lock.json).
 | `find-skills` | `vercel-labs/skills` | Discover and install additional skills when the team needs new capabilities. |
 | `frontend-design` | `anthropics/skills` | Distinctive, production-grade frontend design guidance when iterating on the new-verification UI. |
 | `web-design-guidelines` | `vercel-labs/agent-skills` | Review UI code against Vercel's Web Interface Guidelines (accessibility, UX, layout). |
+| `e2e-test` | (project-local) | Run all test layers (unit/API/smoke/Playwright) end-to-end and report a single pass/fail summary. |
 
 Manage skills with the [Skills CLI](https://skills.sh):
 

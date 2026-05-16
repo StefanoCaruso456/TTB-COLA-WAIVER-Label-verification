@@ -9,6 +9,39 @@ import type {
 } from "./label-extraction.service";
 import { buildOcrPrompt } from "./ocr-prompt-builder";
 
+// Retry policy adopted from
+// https://github.com/fsyeddev/ttb-label/blob/main/lib/gemini.ts with attribution.
+// Delays in milliseconds: first retry after 5s, second after 10s.
+export const GEMINI_503_RETRY_DELAYS_MS = [5000, 10000] as const;
+
+export function is503Error(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { status?: unknown; message?: unknown };
+  if (e.status === 503) return true;
+  if (typeof e.message === "string" && /\b503\b/.test(e.message)) return true;
+  return false;
+}
+
+export async function callWithRetryOn503<T>(
+  fn: () => Promise<T>,
+  delaysMs: readonly number[] = GEMINI_503_RETRY_DELAYS_MS,
+): Promise<T> {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (!is503Error(err) || attempt >= delaysMs.length) throw err;
+      const delayMs = delaysMs[attempt];
+      console.warn(
+        `[gemini] 503 — retrying in ${delayMs}ms (attempt ${attempt + 1}/${delaysMs.length})`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      attempt++;
+    }
+  }
+}
+
 export class GeminiExtractionError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
     super(message);
@@ -61,20 +94,22 @@ export class GeminiLabelExtractionService implements LabelExtractionService {
 
     let response;
     try {
-      response = await this.client.models.generateContent({
-        model: this.model,
-        contents: [
-          {
-            role: "user",
-            parts: userParts,
+      response = await callWithRetryOn503(() =>
+        this.client.models.generateContent({
+          model: this.model,
+          contents: [
+            {
+              role: "user",
+              parts: userParts,
+            },
+          ],
+          config: {
+            systemInstruction: prompt.systemInstruction,
+            responseMimeType: "application/json",
+            temperature: 0.1,
           },
-        ],
-        config: {
-          systemInstruction: prompt.systemInstruction,
-          responseMimeType: "application/json",
-          temperature: 0.1,
-        },
-      });
+        }),
+      );
     } catch (err) {
       throw new GeminiExtractionError(
         "Gemini call failed while extracting the label.",

@@ -236,6 +236,7 @@ export function NewVerificationFlow({
     setError(null);
     setReport(null);
     setExtractedLabel(null);
+    const fetchStart = performance.now();
     try {
       const res = await fetch("/api/verify", {
         method: "POST",
@@ -250,6 +251,7 @@ export function NewVerificationFlow({
         }),
       });
       const json = await res.json();
+      const fetchTotalMs = Math.round(performance.now() - fetchStart);
       if (!res.ok) {
         setError(json.error ?? "Verification failed.");
         return;
@@ -257,6 +259,28 @@ export function NewVerificationFlow({
       setReport(json.report);
       setExtractedLabel(json.extractedLabel);
       setRecordId(json.recordId ?? null);
+
+      if (json.timings && typeof window !== "undefined") {
+        const t = json.timings;
+        const networkMs = Math.max(0, fetchTotalMs - t.totalServerMs);
+        // eslint-disable-next-line no-console
+        console.groupCollapsed(
+          `[verify] ${fetchTotalMs}ms total — ${t.imageSizeKB} KB → ${t.resizedSizeKB} KB after resize`,
+        );
+        // eslint-disable-next-line no-console
+        console.table({
+          "form parse (server)": { ms: t.formParseMs },
+          "image decode (server)": { ms: t.imageDecodeMs },
+          "image preprocess (server)": { ms: t.imagePreprocessMs },
+          "extraction + validation (server)": { ms: t.geminiExtractionMs },
+          "server total": { ms: t.totalServerMs },
+          "network (client ↔ server)": { ms: networkMs },
+          "fetch total (client)": { ms: fetchTotalMs },
+        });
+        // eslint-disable-next-line no-console
+        console.groupEnd();
+      }
+
       router.refresh();
     } catch (err) {
       console.error(err);

@@ -22,7 +22,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               href="/"
               className="px-3 py-1.5 text-sm rounded-md hover:bg-slate-100"
             >
-              History
+              Submissions
             </Link>
             <Link
               href="/new"

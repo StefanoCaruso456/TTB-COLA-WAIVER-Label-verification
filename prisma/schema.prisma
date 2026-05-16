@@ -27,8 +27,11 @@ model VerificationRecord {
   imageJson       Json?
 
   reviewerNotes   String?
+  reviewerStatus  String   @default("pending")
+  assignedReviewer String?
 
   @@index([createdAt])
   @@index([productType])
   @@index([status])
+  @@index([reviewerStatus])
 }

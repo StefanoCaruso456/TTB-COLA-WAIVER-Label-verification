@@ -16,6 +16,9 @@
 /test-results
 /.playwright
 
+# batch file storage (default local dev path)
+/.local/
+
 # next.js
 /.next/
 /out/

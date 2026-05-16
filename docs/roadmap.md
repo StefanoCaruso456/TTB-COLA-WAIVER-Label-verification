@@ -9,11 +9,20 @@
 
 ## How to read this document
 
-This is the strategic plan. It defines **phases**, the **user stories** behind each phase, the **engineering tasks** required, **acceptance criteria** that gate completion, **manual steps** you (Stefano) must take, and **open architectural decisions** that need answers before later phases start.
+This is the strategic plan. It defines, in this hierarchy:
 
-This document does *not* contain implementation code. Each phase produces one or more **feature specs** (`docs/specs/*.md`) before any code is written. The spec is the contract; the roadmap is the schedule.
+```
+phase → features → user stories → (engineering tasks live in the per-phase spec)
+```
 
-**Rule:** A phase's spec must be Approved before that phase's code is written. A phase must meet its Acceptance criteria before the next phase starts.
+The roadmap covers **phases**, **features delivered**, **user stories**, **acceptance criteria**, **risks**, **manual prerequisites**, and **open architectural decisions**.
+
+The roadmap does *not* contain **engineering tasks**, **file paths**, **function signatures**, or **deliverable lists** — those live in per-phase specs at `docs/specs/phase-N-<slug>.md`. The roadmap is the schedule; the spec is the contract.
+
+**Rules:**
+1. A phase's spec must be **Approved** before that phase's code is written.
+2. A phase must meet its **Acceptance criteria** before the next phase starts.
+3. Specs are written **one phase at a time**, when that phase is ready to start — not all upfront.
 
 ---
 
@@ -225,42 +234,7 @@ These apply to every phase and every spec.
 
 ### Engineering tasks
 
-1. **Spec workflow**
-   1. Copy `docs/specs/_template.md` from cola-verify with one-line attribution header.
-   2. Add `Workflow` section to `CLAUDE.md`: spec-first rule, status legend, attribution policy for adopted patterns, commit conventions.
-   3. Create `docs/specs/` directory with `_template.md` only.
-
-2. **Bug tracker**
-   1. Create `docs/bugs.md` modeled on cola-verify's structure: severity legend, Open / Closed / Fixture-quality / Infra sections, "live confirmation" requirement.
-   2. Seed with one known issue (placeholder so format is real).
-
-3. **Image preprocessing**
-   1. Add `sharp` to dependencies. Verify Railway build works (sharp pulls a libvips binary; should be fine on Railway's image, but flagged for manual confirmation).
-   2. Create `lib/services/image-preprocess.ts` with `preprocessImage(buffer: Buffer)` returning `{ buffer, mimeType: 'image/jpeg', originalSizeKB, resizedSizeKB, originalWidth, originalHeight }`.
-   3. Resize to max 1280px on the longest edge, re-encode JPEG at quality 85, preserve aspect ratio.
-   4. Wire into `lib/services/verification-orchestrator.ts` before the extraction service call. Base64 payload is generated from the preprocessed buffer.
-   5. Add unit test: 4000px image → 1280px output, file size strictly smaller.
-
-4. **Per-phase timings**
-   1. Define `AnalysisTimings` interface in `types/verification.ts`: `formParseMs`, `imageDecodeMs`, `imagePreprocessMs`, `geminiExtractionMs`, `validationMs`, `totalServerMs`, `imageSizeKB`, `resizedSizeKB`.
-   2. Instrument `app/api/verify/route.ts` with `Date.now()` between phases.
-   3. Add `timings` to the response payload (extend `AnalysisResponse`).
-   4. Update `components/verification/NewVerificationFlow.tsx` to `console.groupCollapsed` + `console.table` the timings after a successful response.
-   5. Test (unit): timings object present and all keys numeric.
-
-5. **Retry-on-503**
-   1. Add `callWithRetryOn503<T>(fn: () => Promise<T>): Promise<T>` to `lib/services/gemini-label-extraction.service.ts`.
-   2. Export `GEMINI_503_RETRY_DELAYS_MS = [5000, 10000]` constant.
-   3. Wrap the `generateContent` call.
-   4. Detect 503 via `err.status === 503` or `/\b503\b/.test(err.message)`.
-   5. Tests in `tests/gemini-retry.test.ts`: success no retry, success after 1 retry, success after 2 retries, exhaustion (third 503 throws), non-503 not retried, message-text fallback path. Use `vi.useFakeTimers()` to keep tests fast.
-
-6. **Model benchmark**
-   1. Create `scripts/model-benchmark.ts` accepting `--models=<id,id,id>` and `--cases=<id,id>`.
-   2. Run each (model, case) pair, capture: extraction JSON, latency, overall verdict, error type.
-   3. Output a summary table (per-model correct count, avg/p50 latency, error count, 503 count) and a cross-model matrix.
-   4. Optional `--save` flag dumps JSON.
-   5. Add `npm run benchmark` script. Default model list: `gemini-2.5-flash`, `gemini-2.5-flash-lite`.
+*Lives in the per-phase spec (`docs/specs/`) once the phase is approved — see the spec-first rule.*
 
 ### Acceptance criteria
 
@@ -300,19 +274,6 @@ These apply to every phase and every spec.
 
 **1.5–2 engineer-days.** Five small PRs (one per feature 0.1–0.6) or one combined PR with clean commits.
 
-### Deliverables
-
-- `docs/specs/_template.md`
-- `docs/bugs.md`
-- `lib/services/image-preprocess.ts`
-- `types/verification.ts` (extended)
-- `lib/services/gemini-label-extraction.service.ts` (retry added)
-- `scripts/model-benchmark.ts`
-- `package.json` (new script + `sharp` dep)
-- `tests/image-preprocess.test.ts`, `tests/gemini-retry.test.ts`, `tests/image-preprocess-pipeline.test.ts`
-- `CLAUDE.md` (workflow section)
-
----
 
 ## Phase 1 — Eval infrastructure
 
@@ -337,37 +298,7 @@ These apply to every phase and every spec.
 
 ### Engineering tasks
 
-1. **Fixture taxonomy**
-   - `01-pass-*` — labels and applications that should produce all-green PASS.
-   - `02-mismatch-*` — application has at least one deliberate field mismatch; must FAIL.
-   - `03-noncompliant-*` — application is correct but label content violates a rule; PASS with caveat (for later compliance-advisory layer; for now just PASS).
-   - `04-warning-bad-*` — government / mandatory text obviously wrong; FAIL.
-   - `05-warning-sneaky-*` — same but subtle; REVIEW or FAIL acceptable.
-
-2. **Fixture content**
-   - `evals/fixtures/generated/<id>.json` — the form `application` data plus `expected_behavior`.
-   - `evals/fixtures/generated/<id>.png` — the label image (optional in mock-only mode; required for real-Gemini mode).
-   - `evals/fixtures/generated/manifest.json` — array of `{ id, category, description, form_data, expected_behavior }`.
-   - **Initial set:** 10 fixtures across categories 01–05, all runnable in mock mode using the existing sample scenarios in `data/samples/`.
-   - **Optional later:** real images for higher categories.
-
-3. **Runner**
-   - `scripts/run-fixture-evals.ts` with flags:
-     - `--url=<base>` (default `http://localhost:3001`)
-     - `--only=<id,id>` (run subset)
-     - `--verbose` (show field-level details)
-     - `--mock` (force `mockScenario` field in payload; skip image upload entirely)
-   - For each fixture, POST to `/api/verify` with form data + image (or mock-scenario shortcut).
-   - Capture response, run `judge()` against category expectations.
-   - Print per-case status (`✓ PASS` / `✗ reason`) and end-of-run summary with per-category breakdown.
-   - Exit code 0 if all match, 1 otherwise.
-
-4. **npm scripts**
-   - `npm run eval:quick` → one fixture per category (5 fixtures, ~30s).
-   - `npm run eval:full` → all fixtures.
-
-5. **CI integration**
-   - Extend `.github/workflows/ci.yml` `e2e` job to run `npm run eval:quick` after Playwright. Uses mock-only mode (no Gemini key needed in CI).
+*Lives in the per-phase spec (`docs/specs/`) once the phase is approved — see the spec-first rule.*
 
 ### Acceptance criteria
 
@@ -398,16 +329,6 @@ The runner itself is the eval. Self-validating: if its assertions are wrong, the
 
 **1–1.5 engineer-days.**
 
-### Deliverables
-
-- `evals/fixtures/generated/manifest.json`
-- 10× `evals/fixtures/generated/<id>.json` files
-- `scripts/run-fixture-evals.ts`
-- `package.json` (eval scripts)
-- `.github/workflows/ci.yml` (eval:quick in CI)
-- Updated `README.md` with eval section
-
----
 
 ## Phase 2 — Data model and storage abstraction
 
@@ -500,25 +421,7 @@ export interface FileStorage {
 
 ### Engineering tasks
 
-1. **Prisma**
-   1. Update `prisma/schema.prisma` with the models above.
-   2. Generate migration `add_batch_models`.
-   3. Apply locally; verify the existing `Submissions` tab still renders.
-
-2. **Storage interface**
-   1. Create `lib/services/file-storage.ts` with the interface above.
-   2. Create `lib/services/file-storage-railway-volume.ts` implementing the interface against a mounted volume at `process.env.BATCH_FILE_STORAGE_PATH`.
-   3. Path scheme: `<storage-path>/<yyyy>/<mm>/<dd>/<sha256[0..2]>/<sha256>` for sharding.
-   4. Unit tests against a temp dir (no real volume needed in CI).
-
-3. **railway.json**
-   1. Add volume mount: `{ "deploy": { "volumes": [{ "name": "batch-files", "mountPath": "/data/batch-files" }] } }` (exact syntax depends on Railway config — verified manually).
-
-4. **Env**
-   1. Add `BATCH_FILE_STORAGE_PATH` to `.env.example` with `/data/batch-files` default.
-
-5. **No-op behavior**
-   1. No new endpoints. No code paths invoke `FileStorage` yet. The interface and impl exist for Phase 3 to use.
+*Lives in the per-phase spec (`docs/specs/`) once the phase is approved — see the spec-first rule.*
 
 ### Acceptance criteria
 
@@ -548,17 +451,6 @@ export interface FileStorage {
 
 **1.5–2 engineer-days.**
 
-### Deliverables
-
-- `prisma/schema.prisma` (extended)
-- `prisma/migrations/<ts>_add_batch_models/migration.sql`
-- `lib/services/file-storage.ts`
-- `lib/services/file-storage-railway-volume.ts`
-- `tests/file-storage.test.ts`
-- `railway.json` (volume config — verify with you before merge)
-- `.env.example` (new var)
-
----
 
 ## Phase 3 — Synchronous batch path
 
@@ -588,36 +480,7 @@ export interface FileStorage {
 
 ### Engineering tasks
 
-1. **Endpoint: POST /api/batches**
-   1. Accepts `multipart/form-data` with:
-      - `files[]` — image files
-      - `applications` — JSON array, one entry per file, in same order. Each entry validates against `colaApplicationSchema`.
-      - Optional `batchMetadata` JSON.
-   2. Zod validation: file count 1–5, applications count matches files count.
-   3. Compute sha256 of each file (for `fileHash`). Reject duplicate hashes within a batch.
-   4. Preprocess each image via `preprocessImage` (Phase 0).
-   5. Store each file via `FileStorage.put()`.
-   6. Create `Batch` row + N `BatchSubmission` rows (status=queued).
-   7. For each submission, in sequence:
-      - Transition to `processing`.
-      - Run `runVerification`.
-      - On success: persist `VerificationRecord`, set `verificationRecordId`, transition to `verified`.
-      - On failure: capture error code via taxonomy, transition to `failed`, increment batch.failedCount.
-   8. Update `Batch.status` to `completed` or `partially_failed`.
-   9. Return `{ batchId, totalCount, completedCount, failedCount, submissions: [{...}] }`.
-
-2. **Endpoint: GET /api/batches/:id**
-   1. Returns the batch + summary of submissions (no full report payload — keep response small).
-
-3. **Page: /batches/:id**
-   1. Server component. Reads batch + submissions from DB.
-   2. Status badges per submission. Link to `/verification/:recordId` for verified rows. Inline error message for failed rows.
-
-4. **Submissions tab integration**
-   1. Existing `/` page filter chip: filter by batch (via query param `?batchId=<id>`).
-
-5. **E2E test**
-   1. `tests-e2e/batch-sync.spec.ts`: seed 3 fixtures including 1 designed to fail extraction (e.g., empty image). POST to `/api/batches`. Assert: batch completes, 2 verified, 1 failed, GET response matches.
+*Lives in the per-phase spec (`docs/specs/`) once the phase is approved — see the spec-first rule.*
 
 ### Acceptance criteria
 
@@ -649,17 +512,6 @@ export interface FileStorage {
 
 **2 engineer-days.**
 
-### Deliverables
-
-- `app/api/batches/route.ts`
-- `app/api/batches/[id]/route.ts`
-- `app/batches/[id]/page.tsx`
-- `lib/services/batch-service.ts` (orchestrator)
-- `lib/services/error-taxonomy.ts` (typed error codes)
-- `tests-e2e/batch-sync.spec.ts`
-- Extended Submissions tab with `batchId` filter
-
----
 
 ## Phase 4 — Manifest support
 
@@ -713,28 +565,7 @@ Header normalization (from cola-verify pattern):
 
 ### Engineering tasks
 
-1. **Parsers**
-   1. `lib/parsers/manifest-csv.ts` — uses `papaparse`, applies `HEADER_MAP` normalization, returns `{ rows: ParsedManifestRow[], errors: string[], warnings: string[] }`.
-   2. `lib/parsers/manifest-json.ts` — validates with Zod, returns same shape.
-   3. Shared type: `ParsedManifestRow = { fileName: string; application: ColaApplication }`.
-
-2. **Pre-flight validator**
-   1. `lib/services/manifest-validator.ts`:
-      - Input: `{ files: File[]; manifest: ParsedManifestRow[] }`.
-      - Output: `{ matched: Array<{file, row}>; orphanFiles: File[]; orphanRows: ParsedManifestRow[]; errors: string[]; warnings: string[] }`.
-      - Match by case-insensitive filename equality.
-
-3. **Endpoint**
-   1. Extend `POST /api/batches` to accept either:
-      - Old shape: `files[]` + `applications`
-      - New shape: `files[]` + `manifest` (CSV or JSON text)
-   2. If `manifest`, parse, validate, reject pre-flight if there are errors. Return 400 with a structured `validationReport`.
-   3. Build `applications` array from matched rows.
-
-4. **Tests**
-   1. Unit tests for both parsers (valid, invalid, missing required, unknown columns, header variants).
-   2. Validator tests (perfect match, orphan files, orphan rows, mixed).
-   3. Endpoint integration test for the new path.
+*Lives in the per-phase spec (`docs/specs/`) once the phase is approved — see the spec-first rule.*
 
 ### Acceptance criteria
 
@@ -766,16 +597,6 @@ Header normalization (from cola-verify pattern):
 
 **1.5 engineer-days.**
 
-### Deliverables
-
-- `lib/parsers/manifest-csv.ts`
-- `lib/parsers/manifest-json.ts`
-- `lib/services/manifest-validator.ts`
-- `tests/manifest-*.test.ts` (3 files)
-- Extended `app/api/batches/route.ts`
-- Sample manifest in `docs/samples/manifest-example.csv`
-
----
 
 ## Phase 5 — Async queue and worker
 
@@ -865,35 +686,7 @@ The worker process executes this in a Prisma transaction. Multiple worker proces
 
 ### Engineering tasks
 
-1. **Worker process**
-   1. New entry: `worker/index.ts`.
-   2. Reads env, opens Prisma client, starts poll loop.
-   3. Poll interval: 500ms when idle, immediate when work was found.
-   4. Implements queue claim, processing call, retry/fail logic.
-   5. SIGTERM handler.
-
-2. **Service definitions**
-   1. Add `worker` service to `railway.json` (or new Railway service in dashboard).
-   2. Worker shares the same Postgres + Volume mounts as the web service.
-   3. Build / run commands distinct from web.
-
-3. **API changes**
-   1. `POST /api/batches`:
-      - Replace inline processing with enqueue-only.
-      - Returns within ~1–2s regardless of batch size.
-      - Removes the 5-file cap (new cap: 300 from Phase 7, configurable).
-   2. `POST /api/batches/:id/cancel` — new endpoint.
-   3. `GET /api/batches/:id` — extended to include live counts, ETA estimate, last update timestamp.
-
-4. **Backpressure**
-   1. `BATCH_MAX_QUEUE_DEPTH` env var (default 500).
-   2. POST rejects with 429 if `count(queued) >= BATCH_MAX_QUEUE_DEPTH`.
-
-5. **Testing**
-   1. Integration test: enqueue 5 submissions, run worker in-process, assert all reach `verified` or `failed`.
-   2. Crash test: kill worker mid-batch, restart, assert resume without duplicates.
-   3. Cancellation test: cancel mid-batch, assert no new starts.
-   4. Retry test: inject 503 on first attempt, assert success on retry.
+*Lives in the per-phase spec (`docs/specs/`) once the phase is approved — see the spec-first rule.*
 
 ### Acceptance criteria
 
@@ -931,21 +724,6 @@ The worker process executes this in a Prisma transaction. Multiple worker proces
 
 **3 engineer-days.** This is the most complex phase.
 
-### Deliverables
-
-- `worker/index.ts` (entry)
-- `worker/loop.ts` (poll + claim)
-- `worker/processor.ts` (per-submission work)
-- `worker/shutdown.ts`
-- `package.json` (`worker` script)
-- `railway.json` (service definition)
-- Updated `app/api/batches/route.ts` (enqueue-only)
-- New `app/api/batches/[id]/cancel/route.ts`
-- `tests/worker.test.ts`
-- `tests-e2e/batch-async.spec.ts`
-- `docs/specs/batch-worker.md` (full spec)
-
----
 
 ## Phase 6 — Batch UI
 
@@ -973,39 +751,7 @@ The worker process executes this in a Prisma transaction. Multiple worker proces
 
 ### Engineering tasks
 
-1. **Upload page (`/batches/new`)**
-   1. Two-column layout: dropzone on left, optional manifest input on right.
-   2. Client-side validation: file type (jpeg/png/webp), max size per file (10 MB), max files (300).
-   3. If manifest dropped, parse client-side via the same parser code (shared between client and server). Render validation panel.
-   4. "Submit batch" button enabled only when validation passes.
-   5. On submit: POST `/api/batches`, redirect to `/batches/:id`.
-
-2. **Live progress page (`/batches/:id`)**
-   1. Client component polling `/api/batches/:id` every 2.5s.
-   2. Top section: counters (Total / Queued / Processing / Verified / Failed / Canceled) as pipeline stat cards.
-   3. Progress bar based on `completedCount / totalCount`.
-   4. ETA estimate based on running average extraction time.
-   5. Below: filterable table of submissions, status badges, per-row error messages, "View report" link for verified rows.
-   6. Polling stops automatically when `batch.status` is terminal (completed / partially_failed / canceled).
-
-3. **Drill-down**
-   1. Per-row "View report" links to `/verification/:verificationRecordId`.
-   2. Existing verification detail page already shows per-field breakdown — no changes needed.
-
-4. **Cancel**
-   1. Button on `/batches/:id` (visible only when `status === 'queued' || 'processing'`).
-   2. Confirmation dialog.
-   3. POST `/api/batches/:id/cancel`.
-   4. UI updates immediately on response.
-
-5. **Submissions tab integration**
-   1. `/?batchId=<id>` filter chip added to existing Submissions tab.
-   2. Link from `/batches/:id` summary to the filtered Submissions tab view.
-
-6. **Tests**
-   1. Playwright E2E: upload 5 fixtures (mock-mode), confirm batch reaches done with all verified.
-   2. Manifest validation E2E: upload with bad manifest, confirm error panel.
-   3. Cancel E2E: start batch, cancel, confirm state transitions.
+*Lives in the per-phase spec (`docs/specs/`) once the phase is approved — see the spec-first rule.*
 
 ### Acceptance criteria
 
@@ -1037,19 +783,6 @@ The worker process executes this in a Prisma transaction. Multiple worker proces
 
 **3 engineer-days.**
 
-### Deliverables
-
-- `app/batches/new/page.tsx`
-- `app/batches/[id]/page.tsx` (replaces Phase 3 stub)
-- `components/batch/BatchDropzone.tsx`
-- `components/batch/ManifestValidationPanel.tsx`
-- `components/batch/BatchProgressView.tsx`
-- `components/batch/BatchSubmissionRow.tsx`
-- `tests-e2e/batch-upload.spec.ts`
-- `tests-e2e/batch-manifest-validation.spec.ts`
-- `tests-e2e/batch-cancel.spec.ts`
-
----
 
 ## Phase 7 — Hardening and scale test
 
@@ -1075,47 +808,7 @@ The worker process executes this in a Prisma transaction. Multiple worker proces
 
 ### Engineering tasks
 
-1. **Load test runner**
-   1. Extend `scripts/run-fixture-evals.ts` with `--batch` mode that:
-      - Generates N fixtures (clone-and-mutate from the existing 10).
-      - POSTs to `/api/batches`.
-      - Polls until terminal.
-      - Captures: total time, per-submission timing, throughput (submissions/min), max queue depth observed, error count, per-error-code breakdown.
-   2. `npm run loadtest -- --size=50` (and 100, 300).
-   3. Saves a `loadtest-<timestamp>.json` artifact.
-
-2. **Token + cost tracking**
-   1. Capture `usageMetadata` from Gemini SDK response (input tokens, output tokens).
-   2. Per-submission: store on `BatchSubmission.metadata.tokenUsage`.
-   3. Per-batch: compute total and dollar cost using `GEMINI_COST_PER_1K_INPUT` and `GEMINI_COST_PER_1K_OUTPUT` env vars.
-   4. Display in batch progress UI.
-
-3. **Cost cap**
-   1. `BATCH_MAX_COST_USD` env var (default $5).
-   2. Estimate cost on POST based on file count × avg-per-call cost from past batches (rolling 7d average, default $0.01/call).
-   3. Reject with 400 if estimate exceeds cap.
-
-4. **Structured logging**
-   1. Add `pino` (or `pino-http` for the worker).
-   2. Every log line carries `batchId`, `submissionId` (where applicable), `phase`, `durationMs`.
-   3. Standard fields: `level`, `time`, `msg`.
-   4. Sample lines:
-      ```
-      {"level":"info","batchId":"abc","submissionId":"xyz","phase":"extraction","durationMs":4823,"msg":"extraction_complete"}
-      {"level":"warn","batchId":"abc","submissionId":"xyz","attempt":1,"errorCode":"GEMINI_503","msg":"retry_scheduled"}
-      ```
-
-5. **Concurrency tuning**
-   1. Run load test at concurrency = 2, 4, 8, 16.
-   2. Pick the cap that maximizes throughput without exceeding Gemini rate limit (RPM) or DB pool exhaustion.
-   3. Document the chosen value in `docs/architecture/concurrency.md`.
-
-6. **DB pool tuning**
-   1. Measure connection use under load.
-   2. Adjust `DATABASE_URL` query params (`connection_limit=N`) if needed.
-
-7. **Backpressure validation**
-   1. Confirm queue-depth limit (`BATCH_MAX_QUEUE_DEPTH`) actually rejects when exceeded.
+*Lives in the per-phase spec (`docs/specs/`) once the phase is approved — see the spec-first rule.*
 
 ### Acceptance criteria
 
@@ -1150,16 +843,6 @@ The worker process executes this in a Prisma transaction. Multiple worker proces
 
 **2 engineer-days.**
 
-### Deliverables
-
-- Extended `scripts/run-fixture-evals.ts` with `--batch` mode
-- `scripts/loadtest-report.ts`
-- `lib/services/cost-tracking.ts`
-- Updated worker with `pino` logging
-- `docs/architecture/concurrency.md`
-- A committed `loadtest-results.md` summarizing 50/100/300 runs
-
----
 
 ## Phase 8 — Operational polish (optional)
 

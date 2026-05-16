@@ -1,0 +1,37 @@
+{
+  "id": "01-happy-spirits",
+  "description": "Distilled spirits clean pass via mock — bourbon with age statement.",
+  "clientName": "Wildwood Distillery",
+  "applicantName": "James Becker",
+  "productName": "Wildwood Bourbon",
+  "application": {
+    "applicationTypeStep": {
+      "productType": "distilled_spirits",
+      "sourceOfProduct": "domestic",
+      "applicationType": "certificate_of_label_approval",
+      "isResubmission": false
+    },
+    "colaInformationStep": {
+      "brandName": "Wildwood",
+      "fancifulName": "Wildwood Bourbon",
+      "netContents": ["750 mL"],
+      "alcoholContent": "45% Alc./Vol.",
+      "nameAndAddress": "Distilled by Wildwood Distillery, Louisville, KY",
+      "distilledSpirits": {
+        "ageStatement": "Aged 4 Years",
+        "stateOfDistillation": "Kentucky"
+      }
+    },
+    "uploadLabelsStep": {
+      "labelImages": [
+        {
+          "id": "img-1",
+          "fileName": "front.png",
+          "mimeType": "image/png",
+          "size": 1024,
+          "labelImageType": "brand"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "id": "05-image-quality-poor-wine",
+  "description": "Mock returns poor image quality flags — overall must surface needs_review on the image-quality check.",
+  "clientName": "Cypress Hills Cellars",
+  "applicantName": "Maria Reyes",
+  "productName": "Estate Cabernet",
+  "mockScenario": "image-quality-poor",
+  "application": {
+    "applicationTypeStep": {
+      "productType": "wine",
+      "sourceOfProduct": "domestic",
+      "applicationType": "certificate_of_label_approval",
+      "isResubmission": false
+    },
+    "colaInformationStep": {
+      "brandName": "Cypress Hills Cellars",
+      "netContents": ["750 mL"],
+      "alcoholContent": "13.5% Alc./Vol.",
+      "wine": {
+        "vintageYear": 2021,
+        "appellation": "Napa Valley",
+        "grapeVarietals": ["Cabernet Sauvignon"],
+        "sulfiteDeclarationExpected": true,
+        "containsSulfites": true
+      }
+    },
+    "uploadLabelsStep": {
+      "labelImages": [
+        {
+          "id": "img-1",
+          "fileName": "front.png",
+          "mimeType": "image/png",
+          "size": 1024,
+          "labelImageType": "brand"
+        }
+      ]
+    }
+  }
+}

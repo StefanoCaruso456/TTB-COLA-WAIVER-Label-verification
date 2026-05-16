@@ -1,0 +1,39 @@
+{
+  "id": "02-mismatch-abv-wine",
+  "description": "Wine with intentional ABV mismatch — application says 13.0%, mock extractor returns 40%.",
+  "clientName": "Old Tom Vineyards",
+  "applicantName": "Sam Whitaker",
+  "productName": "Reserve Pinot",
+  "mockScenario": "abv-mismatch",
+  "application": {
+    "applicationTypeStep": {
+      "productType": "wine",
+      "sourceOfProduct": "domestic",
+      "applicationType": "certificate_of_label_approval",
+      "isResubmission": false
+    },
+    "colaInformationStep": {
+      "brandName": "Old Tom Vineyards",
+      "netContents": ["750 mL"],
+      "alcoholContent": "13.0% Alc./Vol.",
+      "wine": {
+        "vintageYear": 2022,
+        "appellation": "Willamette Valley",
+        "grapeVarietals": ["Pinot Noir"],
+        "sulfiteDeclarationExpected": true,
+        "containsSulfites": true
+      }
+    },
+    "uploadLabelsStep": {
+      "labelImages": [
+        {
+          "id": "img-1",
+          "fileName": "front.png",
+          "mimeType": "image/png",
+          "size": 1024,
+          "labelImageType": "brand"
+        }
+      ]
+    }
+  }
+}

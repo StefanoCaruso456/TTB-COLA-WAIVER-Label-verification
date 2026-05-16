@@ -1,0 +1,134 @@
+[
+  {
+    "id": "01-happy-wine",
+    "category": 1,
+    "description": "Wine clean pass via mock",
+    "fixtureFile": "01-happy-wine.json",
+    "expectations": {
+      "overallStatus": ["needs_review"],
+      "maxFailingChecks": 0,
+      "mustHaveFieldStatus": [
+        { "fieldKey": "brandName", "status": "match" },
+        { "fieldKey": "governmentWarning", "status": "match" },
+        { "fieldKey": "warningStyle", "status": "needs_review" }
+      ]
+    }
+  },
+  {
+    "id": "01-happy-spirits",
+    "category": 1,
+    "description": "Spirits clean pass via mock",
+    "fixtureFile": "01-happy-spirits.json",
+    "expectations": {
+      "overallStatus": ["needs_review"],
+      "maxFailingChecks": 0,
+      "mustHaveFieldStatus": [
+        { "fieldKey": "brandName", "status": "match" },
+        { "fieldKey": "alcoholContent", "status": "match" }
+      ]
+    }
+  },
+  {
+    "id": "01-happy-malt",
+    "category": 1,
+    "description": "Malt clean pass via mock",
+    "fixtureFile": "01-happy-malt.json",
+    "expectations": {
+      "overallStatus": ["needs_review"],
+      "maxFailingChecks": 0,
+      "mustHaveFieldStatus": [
+        { "fieldKey": "brandName", "status": "match" },
+        { "fieldKey": "governmentWarning", "status": "match" }
+      ]
+    }
+  },
+  {
+    "id": "02-mismatch-abv-wine",
+    "category": 2,
+    "description": "ABV mismatch on wine",
+    "fixtureFile": "02-mismatch-abv-wine.json",
+    "expectations": {
+      "overallStatus": ["fail", "needs_review"],
+      "minFailingChecks": 1,
+      "mustHaveFieldStatus": [
+        { "fieldKey": "alcoholContent", "status": "mismatch" }
+      ]
+    }
+  },
+  {
+    "id": "02-mismatch-brand-wine",
+    "category": 2,
+    "description": "Brand-name typo on wine",
+    "fixtureFile": "02-mismatch-brand-wine.json",
+    "expectations": {
+      "overallStatus": ["fail", "needs_review"],
+      "mustHaveFieldStatus": [
+        { "fieldKey": "brandName", "status": "likely_match" }
+      ]
+    }
+  },
+  {
+    "id": "02-mismatch-warning-case",
+    "category": 2,
+    "description": "Government warning prefix not uppercase",
+    "fixtureFile": "02-mismatch-warning-case.json",
+    "expectations": {
+      "overallStatus": ["fail"],
+      "minFailingChecks": 1,
+      "mustHaveFieldStatus": [
+        { "fieldKey": "governmentWarning", "status": "mismatch" }
+      ]
+    }
+  },
+  {
+    "id": "03-missing-warning-spirits",
+    "category": 3,
+    "description": "Government warning absent from label",
+    "fixtureFile": "03-missing-warning-spirits.json",
+    "expectations": {
+      "overallStatus": ["fail"],
+      "minFailingChecks": 1,
+      "mustHaveFieldStatus": [
+        { "fieldKey": "governmentWarning", "status": "missing" }
+      ]
+    }
+  },
+  {
+    "id": "04-commodity-conflict-wine",
+    "category": 4,
+    "description": "Selected wine, inferred spirits at high confidence",
+    "fixtureFile": "04-commodity-conflict-wine.json",
+    "expectations": {
+      "overallStatus": ["needs_review"],
+      "mustHaveCommodityConflict": true,
+      "mustHaveFieldStatus": [
+        { "fieldKey": "commodityConsistency", "status": "needs_review" }
+      ]
+    }
+  },
+  {
+    "id": "05-image-quality-poor-wine",
+    "category": 5,
+    "description": "Poor image quality",
+    "fixtureFile": "05-image-quality-poor-wine.json",
+    "expectations": {
+      "overallStatus": ["needs_review"],
+      "mustHaveFieldStatus": [
+        { "fieldKey": "imageQuality", "status": "needs_review" }
+      ]
+    }
+  },
+  {
+    "id": "06-imported-missing-origin-wine",
+    "category": 6,
+    "description": "Imported wine missing country of origin on label",
+    "fixtureFile": "06-imported-missing-origin-wine.json",
+    "expectations": {
+      "overallStatus": ["fail"],
+      "minFailingChecks": 1,
+      "mustHaveFieldStatus": [
+        { "fieldKey": "countryOfOrigin", "status": "missing" }
+      ]
+    }
+  }
+]

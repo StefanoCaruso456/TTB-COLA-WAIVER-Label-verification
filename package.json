@@ -14,7 +14,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "benchmark": "tsx scripts/model-benchmark.ts"
+    "benchmark": "tsx scripts/model-benchmark.ts",
+    "eval:quick": "tsx scripts/run-fixture-evals.ts --quick",
+    "eval:full": "tsx scripts/run-fixture-evals.ts"
   },
   "dependencies": {
     "@google/genai": "^0.7.0",

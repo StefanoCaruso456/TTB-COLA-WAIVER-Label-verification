@@ -95,3 +95,28 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+      - name: Start dev server for fixture evals
+        run: |
+          PORT=3001 USE_MOCK_EXTRACTION=true npm run dev > /tmp/dev.log 2>&1 &
+          echo $! > /tmp/dev.pid
+          for i in $(seq 1 60); do
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/ | grep -q "200"; then
+              echo "dev server up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "dev server failed to start"
+          cat /tmp/dev.log
+          exit 1
+
+      - name: Fixture eval quick sweep
+        run: npm run eval:quick -- --url=http://localhost:3001
+
+      - name: Stop dev server
+        if: always()
+        run: |
+          if [ -f /tmp/dev.pid ]; then
+            kill "$(cat /tmp/dev.pid)" 2>/dev/null || true
+          fi

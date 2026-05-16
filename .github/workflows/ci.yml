@@ -82,6 +82,41 @@ jobs:
       - name: Apply migrations
         run: npx prisma migrate deploy
 
+      - name: Verify migration preserves pre-existing data
+        # Insert a row representing pre-existing production data using only
+        # columns that pre-date the latest migration, then re-run migrations
+        # and assert the row survives + the new nullable column is NULL.
+        # Catches future destructive migrations that would silently drop rows
+        # or fail on a populated DB.
+        run: |
+          export PGPASSWORD=ttb
+          psql -h 127.0.0.1 -U ttb -d ttb <<'SQL'
+          INSERT INTO "VerificationRecord" (
+            id, "createdAt", "updatedAt", "productType", "sourceOfProduct",
+            status, "applicationJson", "extractedJson", "reportJson"
+          ) VALUES (
+            'ci-pre-existing-row', NOW(), NOW(), 'wine', 'domestic',
+            'pass', '{}'::jsonb, '{}'::jsonb, '{}'::jsonb
+          );
+          SQL
+          npx prisma migrate deploy
+          COUNT=$(psql -h 127.0.0.1 -U ttb -d ttb -t -A -c \
+            "SELECT count(*) FROM \"VerificationRecord\" WHERE id = 'ci-pre-existing-row';")
+          if [ "$COUNT" != "1" ]; then
+            echo "FAIL: pre-existing row was destroyed by migration (count=$COUNT, expected 1)"
+            exit 1
+          fi
+          BATCH_REF=$(psql -h 127.0.0.1 -U ttb -d ttb -t -A -c \
+            "SELECT COALESCE(\"batchSubmissionId\", 'NULL') FROM \"VerificationRecord\" WHERE id = 'ci-pre-existing-row';")
+          if [ "$BATCH_REF" != "NULL" ]; then
+            echo "FAIL: new batchSubmissionId column should be NULL for pre-existing row (got '$BATCH_REF')"
+            exit 1
+          fi
+          # Clean up so subsequent steps see an empty table
+          psql -h 127.0.0.1 -U ttb -d ttb -c \
+            "DELETE FROM \"VerificationRecord\" WHERE id = 'ci-pre-existing-row';" > /dev/null
+          echo "OK — migration preserved pre-existing data"
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 

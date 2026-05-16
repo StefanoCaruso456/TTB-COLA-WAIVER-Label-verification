@@ -81,6 +81,8 @@ still run verifications from `/new` and see reports.
 | `USE_MOCK_EXTRACTION` | `true` forces the mock extractor; otherwise Gemini is used (falling back to mock if no key). |
 | `GEMINI_MODEL` | Gemini model id (default `gemini-2.5-flash`). |
 | `MAX_LABEL_IMAGES` | Upper bound on images per verification (default 10). |
+| `IMAGE_PREPROCESS_ENABLED` | Resize uploads to ≤1280px JPEG before Gemini (default `true`). |
+| `BATCH_FILE_STORAGE_PATH` | Root directory for batch label files (default `./.local/batch-files`). Point at a Railway Volume mount in production. Used by `LocalDiskFileStorage` once Phase 3 wires it in. |
 
 ## Sample scenarios
 

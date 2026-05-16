@@ -30,8 +30,76 @@ model VerificationRecord {
   reviewerStatus  String   @default("pending")
   assignedReviewer String?
 
+  // Backward-compatible link to a batch submission. Existing rows are unaffected.
+  // Populated by the Phase 3+ batch path; null for single-label verifications.
+  batchSubmissionId String?           @unique
+  batchSubmission   BatchSubmission? @relation(fields: [batchSubmissionId], references: [id])
+
   @@index([createdAt])
   @@index([productType])
   @@index([status])
   @@index([reviewerStatus])
+}
+
+model Batch {
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  completedAt     DateTime?
+
+  // queued | processing | completed | partially_failed | canceled
+  status          String
+
+  clientName      String?
+  applicantName   String?
+
+  // Raw manifest as uploaded (CSV text or JSON). Audit + debugging.
+  manifestJson    Json?
+  // Free-form: source, notes, cost, anything Phase 7 needs.
+  metadata        Json?
+
+  totalCount      Int      @default(0)
+  completedCount  Int      @default(0)
+  failedCount     Int      @default(0)
+  canceledCount   Int      @default(0)
+
+  submissions     BatchSubmission[]
+
+  @@index([createdAt])
+  @@index([status])
+}
+
+model BatchSubmission {
+  id                  String   @id @default(cuid())
+  batchId             String
+  batch               Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  startedAt           DateTime?
+  completedAt         DateTime?
+
+  // queued | processing | extracted | verified | failed | canceled
+  status              String
+  // Taxonomy from lib/services/error-taxonomy.ts. Free-form text in `errorMessage`.
+  errorCode           String?
+  errorMessage        String?
+  attemptCount        Int      @default(0)
+
+  // sha256 of the original bytes — used for in-batch dedup and idempotency.
+  fileHash            String
+  fileName            String
+  fileSize            Int
+  fileMimeType        String
+  // Opaque key into FileStorage. Currently equals `fileHash` for disk storage;
+  // S3 / other backends may rewrite.
+  fileStorageKey      String
+
+  applicationJson     Json
+
+  verificationRecord  VerificationRecord?
+
+  @@index([batchId])
+  @@index([status])
+  @@index([batchId, status])
+  @@index([fileHash])
 }

@@ -1,0 +1,36 @@
+{
+  "id": "01-happy-malt",
+  "description": "Malt beverage clean pass via mock — lager with sulfite disclosure.",
+  "clientName": "Hopforth Brewing Co.",
+  "applicantName": "Devon Holloway",
+  "productName": "Hopforth Lager",
+  "application": {
+    "applicationTypeStep": {
+      "productType": "malt_beverage",
+      "sourceOfProduct": "domestic",
+      "applicationType": "certificate_of_label_approval",
+      "isResubmission": false
+    },
+    "colaInformationStep": {
+      "brandName": "Hopforth",
+      "netContents": ["355 mL"],
+      "alcoholContent": "5.0% Alc./Vol.",
+      "nameAndAddress": "Brewed by Hopforth Brewing Co., Asheville, NC",
+      "maltBeverage": {
+        "containsSulfites": true,
+        "alcoholContentRequiredBecauseOfFlavorOrAddedIngredients": false
+      }
+    },
+    "uploadLabelsStep": {
+      "labelImages": [
+        {
+          "id": "img-1",
+          "fileName": "front.png",
+          "mimeType": "image/png",
+          "size": 1024,
+          "labelImageType": "brand"
+        }
+      ]
+    }
+  }
+}

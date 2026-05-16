@@ -112,6 +112,40 @@ asserted against a live model:
 - Zod cross-field validation on `colaApplicationSchema`
 - End-to-end `verifyApplication` against the mock extractor for the
   documented sample scenarios
+- Image preprocessing (`sharp`), Gemini 503 retry, judge function
+
+## Fixture-based evals
+
+A second tier of testing drives the live `/api/verify` endpoint against a
+directory of categorized fixtures. The runner posts each fixture and
+asserts category-level expectations on the verification report.
+
+```bash
+# Start dev server in one terminal:
+npm run dev
+
+# In another terminal, run the smoke sweep (one fixture per category, ~1s):
+npm run eval:quick
+
+# Or run the full sweep (10 fixtures across 6 categories):
+npm run eval:full
+
+# Target a deployed instance instead of localhost:
+npm run eval:full -- --url=https://your-deployment.up.railway.app
+
+# Run a subset:
+npm run eval:full -- --only=02-mismatch-abv-wine,03-missing-warning-spirits
+
+# Show per-check details on failures:
+npm run eval:full -- --verbose
+```
+
+Fixtures live in [`evals/fixtures/generated/`](evals/fixtures/generated)
+with a `manifest.json` describing categories and expectations. See
+[`docs/specs/phase-1-eval-infrastructure.md`](docs/specs/phase-1-eval-infrastructure.md)
+for the design.
+
+CI runs `eval:quick` automatically in the `e2e` job.
 
 ## Verification status model
 

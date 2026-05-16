@@ -1,6 +1,6 @@
 # Feature Spec — Phase 0: Foundation
 
-**Status:** Draft
+**Status:** Approved
 **Owner:** Stefano
 **Last updated:** 2026-05-16
 

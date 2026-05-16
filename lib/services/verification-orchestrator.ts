@@ -13,6 +13,7 @@ import {
 import { getExtractionService } from "./extraction-service-factory";
 import { verifyApplication } from "./verification.service";
 import { createVerificationRecord } from "./verification-record.service";
+import { preprocessImage } from "./image-preprocess";
 
 export interface RunVerificationInput {
   clientName?: string;
@@ -26,6 +27,12 @@ export interface RunVerificationInput {
   extractionService?: LabelExtractionService;
   /** Skip persistence (useful for sample previews / tests). */
   persist?: boolean;
+  /**
+   * Skip image preprocessing. Used by the mock extractor (which doesn't look at
+   * the image) and the test suite. Production calls go through preprocessing
+   * unless `IMAGE_PREPROCESS_ENABLED=false` is set in the env.
+   */
+  skipImagePreprocess?: boolean;
 }
 
 export interface RunVerificationResult {
@@ -33,6 +40,11 @@ export interface RunVerificationResult {
   report: VerificationReport;
   extractedLabel: ExtractedLabel;
   application: ColaApplication;
+  imagePreprocess?: {
+    originalSizeKB: number;
+    resizedSizeKB: number;
+    durationMs: number;
+  };
 }
 
 export class VerificationInputError extends Error {
@@ -67,9 +79,54 @@ export async function runVerification(
   const extractionService =
     input.extractionService ?? getExtractionService();
 
+  const envFlag = process.env.IMAGE_PREPROCESS_ENABLED;
+  const preprocessEnabled =
+    envFlag === undefined ? true : envFlag.toLowerCase() !== "false";
+  const shouldPreprocess =
+    preprocessEnabled && !input.skipImagePreprocess && !input.mockScenario;
+
+  let imagesForExtraction = input.images;
+  let imagePreprocessSummary: RunVerificationResult["imagePreprocess"];
+
+  if (shouldPreprocess) {
+    const start = Date.now();
+    let originalSum = 0;
+    let resizedSum = 0;
+    imagesForExtraction = await Promise.all(
+      input.images.map(async (image) => {
+        if (!image.base64) return image;
+        try {
+          const inputBuffer = Buffer.from(image.base64, "base64");
+          const result = await preprocessImage(inputBuffer);
+          originalSum += result.originalSizeKB;
+          resizedSum += result.resizedSizeKB;
+          return {
+            ...image,
+            base64: result.buffer.toString("base64"),
+            mimeType: result.mimeType,
+            size: result.buffer.byteLength,
+          };
+        } catch (err) {
+          // Don't fail the verification if one image is unreadable by sharp —
+          // pass through and let the extractor surface a clearer error.
+          console.warn(
+            `[orchestrator] image preprocess failed for ${image.id}; passing original through`,
+            err,
+          );
+          return image;
+        }
+      }),
+    );
+    imagePreprocessSummary = {
+      originalSizeKB: originalSum,
+      resizedSizeKB: resizedSum,
+      durationMs: Date.now() - start,
+    };
+  }
+
   const extractedLabel = await extractionService.extract({
     application,
-    images: input.images,
+    images: imagesForExtraction,
     mockScenario: input.mockScenario,
   });
 
@@ -98,5 +155,11 @@ export async function runVerification(
     });
   }
 
-  return { record, report, extractedLabel, application };
+  return {
+    record,
+    report,
+    extractedLabel,
+    application,
+    imagePreprocess: imagePreprocessSummary,
+  };
 }

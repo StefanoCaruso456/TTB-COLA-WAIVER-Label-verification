@@ -5,6 +5,14 @@ import {
 } from "./cola-application.schema";
 import { overallStatusSchema } from "./verification-result.schema";
 
+export const reviewerStatusSchema = z.enum([
+  "pending",
+  "in_review",
+  "approved",
+  "rejected",
+]);
+export type ReviewerStatus = z.infer<typeof reviewerStatusSchema>;
+
 export const verificationRecordSummarySchema = z.object({
   id: z.string(),
   createdAt: z.string(),
@@ -16,6 +24,8 @@ export const verificationRecordSummarySchema = z.object({
   productType: productTypeSchema,
   sourceOfProduct: sourceOfProductSchema,
   status: overallStatusSchema,
+  reviewerStatus: reviewerStatusSchema,
+  assignedReviewer: z.string().nullable().optional(),
 });
 
 export const verificationRecordDetailSchema =

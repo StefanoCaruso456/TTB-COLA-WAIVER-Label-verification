@@ -4,13 +4,25 @@ import { z } from "zod";
 import {
   getVerificationRecordById,
   updateReviewerNotes,
+  updateSubmissionReview,
 } from "@/lib/services/verification-record.service";
+import { reviewerStatusSchema } from "@/lib/schemas/verification-record.schema";
 
 export const runtime = "nodejs";
 
-const patchSchema = z.object({
-  reviewerNotes: z.string().max(5000),
-});
+const patchSchema = z
+  .object({
+    reviewerNotes: z.string().max(5000).optional(),
+    reviewerStatus: reviewerStatusSchema.optional(),
+    assignedReviewer: z.string().max(120).nullable().optional(),
+  })
+  .refine(
+    (v) =>
+      v.reviewerNotes !== undefined ||
+      v.reviewerStatus !== undefined ||
+      v.assignedReviewer !== undefined,
+    { message: "At least one field is required." },
+  );
 
 export async function GET(
   _request: Request,
@@ -59,7 +71,22 @@ export async function PATCH(
   }
 
   try {
-    const updated = await updateReviewerNotes(id, parsed.data.reviewerNotes);
+    let updated: Awaited<ReturnType<typeof updateReviewerNotes>> = null;
+
+    if (parsed.data.reviewerNotes !== undefined) {
+      updated = await updateReviewerNotes(id, parsed.data.reviewerNotes);
+    }
+
+    if (
+      parsed.data.reviewerStatus !== undefined ||
+      parsed.data.assignedReviewer !== undefined
+    ) {
+      updated = await updateSubmissionReview(id, {
+        reviewerStatus: parsed.data.reviewerStatus,
+        assignedReviewer: parsed.data.assignedReviewer,
+      });
+    }
+
     if (!updated) {
       return NextResponse.json(
         { error: "Verification record not found." },
@@ -70,7 +97,7 @@ export async function PATCH(
   } catch (err) {
     console.error(`[PATCH /api/verifications/${id}] failed`, err);
     return NextResponse.json(
-      { error: "Failed to update reviewer notes." },
+      { error: "Failed to update submission." },
       { status: 500 },
     );
   }

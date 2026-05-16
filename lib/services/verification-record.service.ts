@@ -12,6 +12,7 @@ import type {
   VerificationReport,
 } from "@/types/verification";
 import type { ProductType, SourceOfProduct } from "@/types/cola";
+import type { ReviewerStatus } from "@/lib/schemas/verification-record.schema";
 
 function summaryFromRow(row: {
   id: string;
@@ -24,6 +25,8 @@ function summaryFromRow(row: {
   productType: string;
   sourceOfProduct: string;
   status: string;
+  reviewerStatus: string;
+  assignedReviewer: string | null;
 }): VerificationRecordSummary {
   return {
     id: row.id,
@@ -36,6 +39,8 @@ function summaryFromRow(row: {
     productType: row.productType as ProductType,
     sourceOfProduct: row.sourceOfProduct as SourceOfProduct,
     status: row.status as OverallStatus,
+    reviewerStatus: row.reviewerStatus as ReviewerStatus,
+    assignedReviewer: row.assignedReviewer,
   };
 }
 
@@ -104,6 +109,29 @@ export async function updateReviewerNotes(
   const updated = await prisma.verificationRecord.update({
     where: { id },
     data: { reviewerNotes: notes },
+  });
+  return summaryFromRow(updated);
+}
+
+export interface UpdateSubmissionReviewInput {
+  reviewerStatus?: ReviewerStatus;
+  assignedReviewer?: string | null;
+}
+
+export async function updateSubmissionReview(
+  id: string,
+  patch: UpdateSubmissionReviewInput,
+): Promise<VerificationRecordSummary | null> {
+  const data: Prisma.VerificationRecordUpdateInput = {};
+  if (patch.reviewerStatus !== undefined) {
+    data.reviewerStatus = patch.reviewerStatus;
+  }
+  if (patch.assignedReviewer !== undefined) {
+    data.assignedReviewer = patch.assignedReviewer;
+  }
+  const updated = await prisma.verificationRecord.update({
+    where: { id },
+    data,
   });
   return summaryFromRow(updated);
 }

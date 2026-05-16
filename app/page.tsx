@@ -22,10 +22,10 @@ export default async function HomePage() {
     <AppShell>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-semibold">Verification history</h1>
+          <h1 className="text-2xl font-semibold">Submissions</h1>
           <p className="text-sm text-slate-600">
-            Saved label verification reports. Each entry represents one
-            human-reviewable verification.
+            Every label submission and where it sits in the review pipeline.
+            Filter, search, and assign reviewers.
           </p>
         </div>
         <Link

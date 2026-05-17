@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  LATENCY_SLO_MS,
   computeExtractionScores,
+  computeLatencyScore,
   computeVerificationScores,
   hashPrompt,
   resetForTests,
@@ -236,5 +238,27 @@ describe("tracedVerify / tracedExtract no-op behavior", () => {
         throw new Error("boom");
       }),
     ).rejects.toThrow("boom");
+  });
+});
+
+describe("computeLatencyScore", () => {
+  it("defaults to the 5s SLO from the project brief", () => {
+    expect(LATENCY_SLO_MS).toBe(5000);
+  });
+
+  it("returns 1 when the call meets the SLO", () => {
+    expect(computeLatencyScore(0)).toBe(1);
+    expect(computeLatencyScore(2500)).toBe(1);
+    expect(computeLatencyScore(5000)).toBe(1);
+  });
+
+  it("returns 0 when the call breaches the SLO", () => {
+    expect(computeLatencyScore(5001)).toBe(0);
+    expect(computeLatencyScore(12000)).toBe(0);
+  });
+
+  it("accepts a custom SLO threshold", () => {
+    expect(computeLatencyScore(8000, 10000)).toBe(1);
+    expect(computeLatencyScore(11000, 10000)).toBe(0);
   });
 });

@@ -42,6 +42,15 @@ export async function callWithRetryOn503<T>(
   }
 }
 
+// Even with responseMimeType: "application/json", Gemini occasionally wraps
+// output in ```json ... ``` fences — more likely when the prompt itself
+// contains a JSON example. Strip them defensively before JSON.parse.
+export function stripJsonFences(text: string): string {
+  const trimmed = text.trim();
+  const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/.exec(trimmed);
+  return fenced ? fenced[1].trim() : trimmed;
+}
+
 export class GeminiExtractionError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
     super(message);
@@ -124,12 +133,17 @@ export class GeminiLabelExtractionService implements LabelExtractionService {
       );
     }
 
+    const cleaned = stripJsonFences(text);
+
     let parsedJson: unknown;
     try {
-      parsedJson = JSON.parse(text);
+      parsedJson = JSON.parse(cleaned);
     } catch (err) {
+      const finishReason =
+        (response as { candidates?: Array<{ finishReason?: string }> })
+          .candidates?.[0]?.finishReason ?? "unknown";
       throw new GeminiExtractionError(
-        "Gemini response was not valid JSON.",
+        `Gemini response was not valid JSON (finishReason=${finishReason}, len=${text.length}). First 500 chars: ${cleaned.slice(0, 500)}`,
         err,
       );
     }

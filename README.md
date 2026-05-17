@@ -66,7 +66,7 @@ For the Gemini path, set `GEMINI_API_KEY` and unset `USE_MOCK_EXTRACTION`. For p
 | Language | TypeScript (strict) | End-to-end types from Zod schemas through the comparator pipeline |
 | Validation | Zod | Same schemas validate inbound requests and infer all public types |
 | Database | Prisma + Postgres | `VerificationRecord`, `Batch`, `BatchSubmission`; migrations checked in |
-| AI | `@google/genai` 1.52 + `gemini-2.5-flash-lite` | Multimodal OCR + structured-output mode; lite variant for ~2× faster decode |
+| AI | `@google/genai` 1.52 + `gemini-2.5-flash` | Multimodal OCR + structured-output mode; thinking disabled for latency |
 | Image pipeline | `sharp` | Resize to 1280 px max edge, JPEG 85% — ~85% payload reduction |
 | Telemetry | Braintrust SDK | One `verify` parent span + one `gemini.extract` child per call; latency, cost, token, and scoring metrics |
 | Storage | Filesystem (`LocalDiskFileStorage`) | Content-addressed; deploys to a Railway Volume in production |
@@ -166,7 +166,7 @@ Full diagram + trust boundaries: [`docs/architecture.md`](docs/architecture.md).
 | Variable | Default | Purpose |
 |---|---|---|
 | `USE_MOCK_EXTRACTION` | `false` | `true` forces deterministic mock extraction (no Gemini call). |
-| `GEMINI_MODEL` | `gemini-2.5-flash-lite` | Override to a different Gemini model. Set to `gemini-2.5-flash` for the slower-but-slightly-more-accurate full Flash. |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Override to a different Gemini model (e.g. a dated lite variant like `gemini-2.5-flash-lite-preview-06-17` once you confirm availability on your API tier). |
 | `IMAGE_PREPROCESS_ENABLED` | `true` | Resize uploads to JPEG before Gemini. |
 | `IMAGE_MAX_EDGE_PX` | `1024` | Longest-edge target after resize. Clamped 256..4096. Raise to 1280–1568 if a corpus has small print that benefits. |
 | `EXTRACTION_DEBUG_LOG` | `false` | When `true`, log the first 2 KB of every Gemini response (operator debug). |

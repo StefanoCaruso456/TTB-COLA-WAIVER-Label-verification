@@ -167,7 +167,6 @@ Full diagram + trust boundaries: [`docs/architecture.md`](docs/architecture.md).
 |---|---|---|
 | `USE_MOCK_EXTRACTION` | `false` | `true` forces deterministic mock extraction (no Gemini call). |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Override to a different Gemini model. |
-| `MAX_LABEL_IMAGES` | `10` | Upper bound on images per single-label verification. |
 | `IMAGE_PREPROCESS_ENABLED` | `true` | Resize uploads to ≤1280 px JPEG before Gemini. |
 | `EXTRACTION_DEBUG_LOG` | `false` | When `true`, log the first 2 KB of every Gemini response (operator debug). |
 | `BATCH_FILE_STORAGE_PATH` | `./.local/batch-files` | Batch storage root. Point at a Railway Volume in production. |

@@ -6,7 +6,7 @@ Bugs surfaced from evals (unit, integration, fixture, live) against the verifier
 
 **Last eval run:** _none yet — Phase 1 introduces the fixture eval suite._
 
-**Last live observation:** 2026-05-17 — BUG-01 (Gemini under-extraction on a foreign-market wine label).
+**Last live observation:** 2026-05-17 — BUG-01 closed after live confirmation. Latency / cost incident on `gemini-2.5-flash` (62k thoughtsTokens pushing calls to 237s and $0.16) found via Braintrust and fixed by `@google/genai` 0.7 → 1.52 upgrade in PR #17 (trace `b1037cd3`: 7.6s end-to-end, $0.0046/call, brandNameMatched=1).
 
 ## Severity legend
 
@@ -19,15 +19,7 @@ Bugs surfaced from evals (unit, integration, fixture, live) against the verifier
 
 ## Open bugs
 
-### 🟠 BUG-01 — Gemini returns empty `normalizedFields` on a visibly readable foreign-market wine label
-
-- **Case observed (live, 2026-05-17):** Edouard Delaunay, "Les Rouards", Bourgogne Hautes-Côtes de Nuits 2020, 750 mL, 14% vol. Application brand was entered as `edouard delaunay`; the front label shows `EDOUARD DELAUNAY` in legible serif type on a cream background. Record id `cmp9j1rcf0000pwto3o66r8j9`.
-- **Symptom:** Every comparator on the report shows `Extracted: —`. Brand, class/type designation, and government warning all return `MISSING`. Overall verdict: `FAIL` (3 errors, 1 review, 1 warning, 2 N/A, 2 pass). However, `commodityIntent.inferredProductType=wine` came back, so the Gemini call itself succeeded and returned a parseable JSON envelope — the model just omitted every `normalizedFields.*` entry.
-- **Why it matters:** The verifier's job is "does the label say what the application says?" A `MISSING` on a clearly-readable brand name destroys reviewer trust and produces a `FAIL` for the wrong reason (under-extraction vs. a genuine label gap). Two of the three errors on this case (government warning, class/type) _are_ correct — this is a French-market label without US-mandated wording — but the brand `MISSING` is wrong and the user cannot distinguish "extractor under-performed" from "label genuinely lacks the field."
-- **Suspected area:**
-  - `lib/services/ocr-prompt-builder.ts:28` — the instruction "If a field is not visible, set its value to null **and omit it from the output if appropriate**" gives Gemini an escape hatch. Combined with `temperature: 0.1` and the schema's `.optional()` fields, the conservative path is to omit fields the model is uncertain how to slot (e.g., is `EDOUARD DELAUNAY` the brand, the producer, or the trade name?).
-  - No raw-response logging in `lib/services/gemini-label-extraction.service.ts` — root-causing under-extraction live currently requires re-running the call with custom instrumentation.
-- **Fix scope:** Spec `docs/specs/bug-01-gemini-empty-extraction.md`. Tighten the OCR prompt to require an explicit entry (value or null + evidenceText) for every listed target, clarify that non-English / foreign-market labels are in scope, and add an env-gated raw-response log so operators can diagnose future under-extraction from logs.
+_(none — see "Closed bugs" below.)_
 
 ---
 
@@ -51,7 +43,22 @@ _(none yet — eval infra is introduced in Phase 1)_
 
 When fixing a bug: link the spec/PR back here, move the entry under "Closed bugs" with the resolution and the case ID(s) that confirm the fix. Don't delete entries.
 
-_(none yet)_
+### 🟠 BUG-01 — Gemini returns empty `normalizedFields` on a visibly readable foreign-market wine label  *(closed 2026-05-17)*
+
+- **Case observed (live, 2026-05-17):** Edouard Delaunay, "Les Rouards", Bourgogne Hautes-Côtes de Nuits 2020, 750 mL, 14% vol. Application brand was entered as `edouard delaunay`; the front label shows `EDOUARD DELAUNAY` in legible serif type on a cream background. Record id `cmp9j1rcf0000pwto3o66r8j9`.
+- **Symptom (before):** Every comparator on the report showed `Extracted: —`. Brand, class/type designation, and government warning all returned `MISSING`. Overall verdict: `FAIL` (3 errors, 1 review, 1 warning, 2 N/A, 2 pass). The Gemini call itself succeeded and returned a parseable JSON envelope — the model just omitted every `normalizedFields.*` entry.
+- **Root cause:** The OCR prompt's "set value to null and omit it from the output if appropriate" clause gave Gemini an escape hatch under `temperature: 0.1`. On foreign-market labels without US-format equivalents, the model exited via "omit" rather than "value: null".
+- **Fix (multi-PR):**
+  - Spec: `docs/specs/bug-01-gemini-empty-extraction.md`.
+  - PR #10 (`3454c67`) tightened the prompt to require an entry for every target + declared foreign-market labels in scope.
+  - PR #10 (`83819cb`) added env-gated raw-response logging.
+  - PR #11 (`74c87f3`) corrected the prompt to declare `normalizedFields` as an object (was producing an array under the new wording).
+  - PR #12 (`ebd0b06`) enumerated the `labelImageType` enum and remapped "front" → "brand".
+  - PR #13 (`72c2fce`) added markdown-fence stripping + parse-error diagnostics in the Gemini service.
+  - PR #14 / #15 / #16 / #17 wired Braintrust telemetry end-to-end and disabled `gemini-2.5-flash` thinking via the SDK upgrade.
+- **Live confirmation (Braintrust traces):**
+  - Trace `94f2c356` (wine barrel, post-prompt-fix): `brandNamePresent=1`, brand matched, schema validated. Original BUG-01 resolved.
+  - Trace `b1037cd3` (Svetoni Vino Nobile, post-SDK-upgrade): `geminiCallMs=7592`, `thoughtsTokens=absent`, `estimated_cost_usd=$0.0046`, `fieldCoverage=0.87`, `brandNameMatched=1`, `governmentWarningPresent=1`, `overallStatus=needs_review`.
 
 ---
 

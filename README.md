@@ -167,7 +167,8 @@ Full diagram + trust boundaries: [`docs/architecture.md`](docs/architecture.md).
 |---|---|---|
 | `USE_MOCK_EXTRACTION` | `false` | `true` forces deterministic mock extraction (no Gemini call). |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Override to a different Gemini model. |
-| `IMAGE_PREPROCESS_ENABLED` | `true` | Resize uploads to ≤1280 px JPEG before Gemini. |
+| `IMAGE_PREPROCESS_ENABLED` | `true` | Resize uploads to JPEG before Gemini. |
+| `IMAGE_MAX_EDGE_PX` | `1024` | Longest-edge target after resize. Clamped 256..4096. Raise to 1280–1568 if a corpus has small print that benefits. |
 | `EXTRACTION_DEBUG_LOG` | `false` | When `true`, log the first 2 KB of every Gemini response (operator debug). |
 | `BATCH_FILE_STORAGE_PATH` | `./.local/batch-files` | Batch storage root. Point at a Railway Volume in production. |
 | `BATCH_MAX_REQUEST_BYTES` | `209715200` (200 MB) | Cap on `POST /api/batches` body. |

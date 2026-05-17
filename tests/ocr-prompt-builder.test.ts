@@ -51,6 +51,15 @@ describe("buildOcrPrompt — BUG-01 prompt tightening", () => {
     expect(userInstruction).toMatch(/"brandName":\s*\{/);
   });
 
+  it("enumerates the allowed labelImageType values and remaps 'front' to 'brand'", () => {
+    const { userInstruction } = buildOcrPrompt(wineApp());
+    expect(userInstruction).toMatch(/labelImageType MUST be one of/);
+    for (const v of ["brand", "back", "neck", "side", "strip", "other", "unknown"]) {
+      expect(userInstruction).toContain(`"${v}"`);
+    }
+    expect(userInstruction).toMatch(/is "brand" \(NOT "front"\)/);
+  });
+
   it("does not contain the old permissive omit-if-appropriate clause", () => {
     const { userInstruction } = buildOcrPrompt(wineApp());
     expect(userInstruction).not.toMatch(/omit it from the output if appropriate/i);

@@ -32,6 +32,7 @@ Rules:
 - If a target IS visible, return what you see verbatim in value. When you are uncertain which target a visible piece of text belongs to (e.g., a winery name that could be brand OR trade name), pick the closest-matching target, lower the confidence to reflect the uncertainty, and put the raw text in evidenceText — do NOT drop the field.
 - Non-English text and foreign-market labels are in scope. Extract visible text exactly as written, in its original language; do not translate. Report fields that don't fit US-format conventions (e.g., no "GOVERNMENT WARNING" prefix) as absent with evidenceText noting the format mismatch, rather than silently omitting them.
 - Each extracted field should include: value, normalizedValue (optional), confidence (0-1), evidenceText (the surrounding text you read), and labelImageType when known.
+- labelImageType MUST be one of these exact strings: "brand", "back", "neck", "side", "strip", "other", "unknown". The front of the bottle / primary label is "brand" (NOT "front"). If a field appears on multiple panels (e.g. both front and back), pick the most prominent one and note the duplication in evidenceText. If unsure, use "unknown".
 - For netContents and grapeVarietals, return arrays of values when multiple appear.
 - Provide rawText: a single string containing the concatenated readable text from all images.
 - Provide inferredProductType (one of: wine, domestic_sake, distilled_spirits, malt_beverage) and inferredProductTypeConfidence (0-1). The user selection is authoritative — your inference is a soft signal only.

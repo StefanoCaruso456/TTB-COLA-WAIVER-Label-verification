@@ -25,7 +25,10 @@ Extract the following targets from the label image(s) provided:
 ${targetLines}
 
 Rules:
-- Return ONLY visible information. If a field is not visible, set its value to null and omit it from the output if appropriate.
+- Return an entry in normalizedFields for EVERY listed target above, without exception. Do not omit a target from the output even when it is absent from the label.
+- If a target is genuinely not present on the label, return it with value: null and a short evidenceText explaining why (e.g., "no US-style government warning on this foreign-market label" or "label is French; no 'Red Wine' class designation shown").
+- If a target IS visible, return what you see verbatim in value. When you are uncertain which target a visible piece of text belongs to (e.g., a winery name that could be brand OR trade name), pick the closest-matching target, lower the confidence to reflect the uncertainty, and put the raw text in evidenceText — do NOT drop the field.
+- Non-English text and foreign-market labels are in scope. Extract visible text exactly as written, in its original language; do not translate. Report fields that don't fit US-format conventions (e.g., no "GOVERNMENT WARNING" prefix) as absent with evidenceText noting the format mismatch, rather than silently omitting them.
 - Each extracted field should include: value, normalizedValue (optional), confidence (0-1), evidenceText (the surrounding text you read), and labelImageType when known.
 - For netContents and grapeVarietals, return arrays of values when multiple appear.
 - Provide rawText: a single string containing the concatenated readable text from all images.

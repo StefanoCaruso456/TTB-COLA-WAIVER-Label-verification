@@ -9,7 +9,31 @@ import {
   batchSubmissionStatusSchema,
 } from "./batch.schema";
 
-export const MAX_BATCH_FILES = 5;
+// Phase 5: default raised from 5 (sync cap) to 200 (async worker cap).
+// Override via env MAX_BATCH_FILES_OVERRIDE (1..500). The hard ceiling
+// guards against a runaway value blowing past the request body limit.
+const DEFAULT_MAX_BATCH_FILES = 200;
+const HARD_MAX_BATCH_FILES = 500;
+
+function resolveMaxBatchFiles(): number {
+  const raw = process.env.MAX_BATCH_FILES_OVERRIDE;
+  if (!raw) return DEFAULT_MAX_BATCH_FILES;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 1) return DEFAULT_MAX_BATCH_FILES;
+  return Math.min(Math.floor(n), HARD_MAX_BATCH_FILES);
+}
+
+export const MAX_BATCH_FILES = resolveMaxBatchFiles();
+
+/** Response shape for POST /api/batches (Phase 5: 202 accepted). */
+export const createBatchAcceptedResponseSchema = z.object({
+  batchId: z.string(),
+  status: batchStatusSchema,
+  totalCount: z.number().int().nonnegative(),
+});
+export type CreateBatchAcceptedResponse = z.infer<
+  typeof createBatchAcceptedResponseSchema
+>;
 
 /**
  * The `applications` form field is a JSON-encoded string containing an array

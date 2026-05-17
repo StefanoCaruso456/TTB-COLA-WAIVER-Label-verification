@@ -1,25 +1,13 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-interface SubmissionResult {
-  id: string;
-  fileName: string;
-  fileSize: number;
-  status: string;
-  errorCode?: string | null;
-  errorMessage?: string | null;
-  verificationRecordId?: string | null;
-}
-
-interface BatchResponse {
+/** Phase 5: POST returns 202 with this shape; live progress lives on /batches/:id. */
+interface BatchAcceptedResponse {
   batchId: string;
   status: string;
   totalCount: number;
-  completedCount: number;
-  failedCount: number;
-  submissions: SubmissionResult[];
 }
 
 interface ManifestParseError {
@@ -41,16 +29,8 @@ interface BatchError {
   validationReport?: ManifestValidationReport;
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  queued: "bg-slate-100 text-slate-700",
-  processing: "bg-sky-50 text-sky-800",
-  extracted: "bg-sky-50 text-sky-800",
-  verified: "bg-emerald-50 text-emerald-800",
-  failed: "bg-rose-50 text-rose-800",
-  canceled: "bg-slate-100 text-slate-500",
-};
-
-const MAX_BATCH_FILES = 5;
+// Phase 5: async worker, 200-file default cap.
+const MAX_BATCH_FILES = 200;
 
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -59,13 +39,13 @@ function formatBytes(n: number): string {
 }
 
 export function BatchVerificationFlow() {
+  const router = useRouter();
   const [files, setFiles] = useState<File[]>([]);
   const [manifestText, setManifestText] = useState<string>("");
   const [manifestFileName, setManifestFileName] = useState<string>("");
   const [clientName, setClientName] = useState("");
   const [applicantName, setApplicantName] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<BatchResponse | null>(null);
   const [error, setError] = useState<BatchError | string | null>(null);
 
   const totalSize = useMemo(
@@ -94,7 +74,6 @@ export function BatchVerificationFlow() {
 
   const onSubmit = useCallback(async () => {
     setError(null);
-    setResult(null);
 
     if (files.length === 0) {
       setError("Add at least one label image.");
@@ -138,15 +117,16 @@ export function BatchVerificationFlow() {
       const body = await res.json();
       if (!res.ok) {
         setError(body as BatchError);
-      } else {
-        setResult(body as BatchResponse);
+        setSubmitting(false);
+        return;
       }
+      const accepted = body as BatchAcceptedResponse;
+      router.push(`/batches/${accepted.batchId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
-    } finally {
       setSubmitting(false);
     }
-  }, [files, manifestText, manifestFileName, clientName, applicantName]);
+  }, [files, manifestText, manifestFileName, clientName, applicantName, router]);
 
   return (
     <div className="space-y-6">
@@ -177,9 +157,11 @@ export function BatchVerificationFlow() {
       <section className="rounded-lg border border-slate-200 bg-white p-5">
         <h2 className="text-lg font-semibold mb-2">2. Upload label images</h2>
         <p className="text-sm text-slate-600 mb-3">
-          One image per label. Up to {MAX_BATCH_FILES} labels per batch. File
-          names here must match <code className="text-xs bg-slate-100 px-1 rounded">file_name</code> values in your manifest
-          (matching is case-insensitive).
+          One image per label. Up to {MAX_BATCH_FILES} labels per batch
+          (processed asynchronously — you&apos;ll be redirected to the batch
+          progress page after submission). File names here must match{" "}
+          <code className="text-xs bg-slate-100 px-1 rounded">file_name</code>{" "}
+          values in your manifest (matching is case-insensitive).
         </p>
         <input
           type="file"
@@ -245,7 +227,6 @@ export function BatchVerificationFlow() {
               setFiles([]);
               setManifestText("");
               setManifestFileName("");
-              setResult(null);
               setError(null);
             }}
             className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
@@ -255,61 +236,7 @@ export function BatchVerificationFlow() {
         )}
       </div>
 
-      {error && (
-        <BatchErrorPanel error={error} />
-      )}
-
-      {result && (
-        <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5">
-          <h2 className="text-lg font-semibold mb-2">
-            Batch{" "}
-            <Link
-              href={`/batches/${result.batchId}`}
-              className="text-indigo-700 underline"
-            >
-              {result.batchId}
-            </Link>
-          </h2>
-          <p className="text-sm mb-4">
-            <strong>Total:</strong> {result.totalCount} ·{" "}
-            <strong>Completed:</strong> {result.completedCount} ·{" "}
-            <strong>Failed:</strong> {result.failedCount}
-          </p>
-          <ul className="space-y-2">
-            {result.submissions.map((s) => (
-              <li
-                key={s.id}
-                className="flex items-center justify-between rounded border border-slate-200 bg-white px-3 py-2 text-sm"
-              >
-                <div className="flex-1 truncate">
-                  <span className="font-medium">{s.fileName}</span>{" "}
-                  <span className="text-slate-500">
-                    ({formatBytes(s.fileSize)})
-                  </span>
-                  {s.errorMessage && (
-                    <span className="ml-2 text-rose-700">
-                      — {s.errorMessage}
-                    </span>
-                  )}
-                </div>
-                <span
-                  className={`ml-2 rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[s.status] ?? "bg-slate-100 text-slate-700"}`}
-                >
-                  {s.status}
-                </span>
-                {s.verificationRecordId && (
-                  <Link
-                    href={`/verifications/${s.verificationRecordId}`}
-                    className="ml-3 text-indigo-700 text-xs underline"
-                  >
-                    View
-                  </Link>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {error && <BatchErrorPanel error={error} />}
     </div>
   );
 }

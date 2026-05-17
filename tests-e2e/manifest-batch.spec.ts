@@ -153,9 +153,10 @@ test.describe("Phase 4 — manifest support", () => {
         },
       ],
     );
-    expect(status).toBe(200);
+    // Phase 5: 202 with batchId; the worker drains the queue async.
+    expect(status).toBe(202);
     expect((body as BatchResponse).totalCount).toBe(2);
-    expect((body as BatchResponse).submissions).toHaveLength(2);
+    expect((body as BatchResponse).batchId).toBeTruthy();
   });
 
   test("CSV manifest with 2 rows + 2 matching files creates 2 submissions", async ({
@@ -191,11 +192,10 @@ wine-02.png,wine,Bayview,14.0%,750 mL`;
         },
       ],
     );
-    expect(status).toBe(200);
+    // Phase 5: 202 + batchId; per-file status is on the GET endpoint.
+    expect(status).toBe(202);
     expect((body as BatchResponse).totalCount).toBe(2);
-    expect(
-      (body as BatchResponse).submissions.map((s) => s.fileName).sort(),
-    ).toEqual(["wine-01.png", "wine-02.png"]);
+    expect((body as BatchResponse).batchId).toBeTruthy();
   });
 
   test("JSON manifest with 2 rows + 2 matching files creates 2 submissions", async ({
@@ -235,7 +235,7 @@ wine-02.png,wine,Bayview,14.0%,750 mL`;
         },
       ],
     );
-    expect(status).toBe(200);
+    expect(status).toBe(202);
     expect((body as BatchResponse).totalCount).toBe(2);
   });
 

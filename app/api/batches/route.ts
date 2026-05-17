@@ -5,20 +5,15 @@ import {
   createBatchApplicationsSchema,
   createBatchMetadataSchema,
   MAX_BATCH_FILES,
-  type CreateBatchResponse,
+  type CreateBatchAcceptedResponse,
 } from "@/lib/schemas/batch-api.schema";
 import {
   createBatch,
   createBatchSubmissions,
-  finalizeBatch,
-  getBatchById,
-  recordSubmissionFailure,
-  recordSubmissionVerification,
-  transitionSubmissionStatus,
 } from "@/lib/services/batch-service";
+import { startBatchInBackground } from "@/lib/services/batch-worker";
+import { prisma } from "@/lib/prisma";
 import { getFileStorage } from "@/lib/services/file-storage-factory";
-import { runVerification } from "@/lib/services/verification-orchestrator";
-import { classifyError } from "@/lib/services/error-taxonomy";
 import {
   extractBatchMetadataFromJson,
   parseCsvManifest,
@@ -28,13 +23,23 @@ import {
   reportIsClean,
   validateManifestAgainstFiles,
 } from "@/lib/services/manifest-validator";
-import type { ColaApplication, LabelImagePayload } from "@/types/cola";
+import type { ColaApplication } from "@/types/cola";
 import type { ManifestRow } from "@/lib/schemas/manifest.schema";
+
+const DEFAULT_QUEUE_DEPTH_LIMIT = 500;
+function queueDepthLimit(): number {
+  const fromEnv = process.env.BATCH_QUEUE_DEPTH_LIMIT;
+  if (!fromEnv) return DEFAULT_QUEUE_DEPTH_LIMIT;
+  const n = Number(fromEnv);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : DEFAULT_QUEUE_DEPTH_LIMIT;
+}
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const DEFAULT_MAX_REQUEST_BYTES = 50 * 1024 * 1024; // 50 MB (AD-012)
+// Phase 5: raised from 50 MB (Phase 3 sync) to 200 MB to accommodate
+// 200-file batches at ~1 MB per label. Still env-overridable.
+const DEFAULT_MAX_REQUEST_BYTES = 200 * 1024 * 1024;
 
 function maxRequestBytes(): number {
   const fromEnv = process.env.BATCH_MAX_REQUEST_BYTES;
@@ -62,6 +67,24 @@ export async function POST(request: Request) {
         maxBytes,
       },
       { status: 413 },
+    );
+  }
+
+  // 1b. Backpressure guard (Phase 5). Reject when the global queue is
+  //     already at capacity so the worker isn't pushed past its limits.
+  const depthLimit = queueDepthLimit();
+  const currentDepth = await prisma.batchSubmission.count({
+    where: { status: { in: ["queued", "processing"] } },
+  });
+  if (currentDepth >= depthLimit) {
+    return NextResponse.json(
+      {
+        error: "Batch queue is at capacity; try again shortly.",
+        code: "QUEUE_FULL",
+        depth: currentDepth,
+        limit: depthLimit,
+      },
+      { status: 429 },
     );
   }
 
@@ -351,92 +374,16 @@ export async function POST(request: Request) {
     })),
   });
 
-  // 9. Process each submission serially. Per-file try/catch keeps siblings alive.
-  for (let i = 0; i < submissions.length; i++) {
-    const submission = submissions[i];
-    const application = applicationByFileIndex.get(i)!;
-    const buffer = buffers[i];
-    const file = files[i];
+  // 9. Phase 5: kick off async processing. Worker drains submissions
+  //    with bounded concurrency in the background; caller polls
+  //    /api/batches/:id for live progress.
+  void submissions; // present for clarity — the worker re-reads from DB
+  startBatchInBackground(batch.id);
 
-    try {
-      await transitionSubmissionStatus(submission.id, "processing");
-
-      const imagePayload: LabelImagePayload = {
-        id: `batch-${batch.id}-img-${i}`,
-        fileName: submission.fileName,
-        mimeType: submission.fileMimeType,
-        size: submission.fileSize,
-        labelImageType: "brand",
-        base64: buffer.toString("base64"),
-      };
-
-      const result = await runVerification({
-        clientName: batchMetadata.clientName,
-        applicantName: batchMetadata.applicantName,
-        productName: file.name,
-        application,
-        images: [imagePayload],
-        batchSubmissionId: submission.id,
-      });
-
-      await transitionSubmissionStatus(submission.id, "extracted");
-      await transitionSubmissionStatus(submission.id, "verified");
-      if (result.record?.id) {
-        await recordSubmissionVerification({
-          submissionId: submission.id,
-          batchId: batch.id,
-          verificationRecordId: result.record.id,
-        });
-      }
-    } catch (err) {
-      const errorCode = classifyError(err);
-      const errorMessage =
-        err instanceof Error ? err.message : String(err);
-      try {
-        // Transition out of `processing` into `failed`. If we never entered
-        // `processing` (e.g., transition itself threw), the submission is
-        // already in `queued`; the transition guard would block queued→failed
-        // so we update the row directly via recordSubmissionFailure (which
-        // only sets errorCode/errorMessage) and then attempt the transition.
-        await transitionSubmissionStatus(submission.id, "failed");
-      } catch {
-        // Status transition itself failed; row stays where it is. Counters
-        // still need updating so the operator sees the failure surfaced.
-      }
-      await recordSubmissionFailure({
-        submissionId: submission.id,
-        batchId: batch.id,
-        errorCode,
-        errorMessage,
-      });
-    }
-  }
-
-  // 10. Finalize.
-  const finalBatch = await finalizeBatch(batch.id);
-
-  // 11. Re-read with verificationRecord joined for the response.
-  const fresh = await getBatchById(batch.id);
-  const submissionsForResponse = fresh?.submissions ?? [];
-
-  const response: CreateBatchResponse = {
-    batchId: finalBatch.id,
-    status: finalBatch.status as CreateBatchResponse["status"],
-    totalCount: finalBatch.totalCount,
-    completedCount: finalBatch.completedCount,
-    failedCount: finalBatch.failedCount,
-    submissions: submissionsForResponse.map((s) => ({
-      id: s.id,
-      fileName: s.fileName,
-      fileSize: s.fileSize,
-      status: s.status as CreateBatchResponse["submissions"][number]["status"],
-      errorCode: s.errorCode,
-      errorMessage: s.errorMessage,
-      verificationRecordId: s.verificationRecordId,
-      createdAt: s.createdAt.toISOString(),
-      completedAt: s.completedAt?.toISOString() ?? null,
-    })),
+  const response: CreateBatchAcceptedResponse = {
+    batchId: batch.id,
+    status: batch.status as CreateBatchAcceptedResponse["status"],
+    totalCount: batch.totalCount,
   };
-
-  return NextResponse.json(response);
+  return NextResponse.json(response, { status: 202 });
 }

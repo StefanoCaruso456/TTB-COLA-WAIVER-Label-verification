@@ -124,29 +124,44 @@ test.describe("Batch sync endpoint", () => {
       wineApp("Bayview Wines"),
     ];
 
+    // Phase 5: POST returns 202 with batchId + totalCount only. The worker
+    // drains the queue in the background; the test polls the GET endpoint
+    // until the batch is terminal.
     const { status, body } = await postBatch(page, baseURL!, files, applications);
-    expect(status).toBe(200);
+    expect(status).toBe(202);
     expect(body.totalCount).toBe(3);
-    expect(body.submissions).toHaveLength(3);
-    // With mock extractor and no mockScenario, all three should produce verified.
-    expect(body.completedCount).toBe(3);
-    expect(body.failedCount).toBe(0);
-    expect(body.status).toBe("completed");
-    for (const s of body.submissions) {
+    expect(body.batchId).toBeTruthy();
+
+    // Poll until terminal (or timeout).
+    const deadlineMs = Date.now() + 60_000;
+    let getBody: {
+      batch: { id: string; status: string; totalCount: number; completedCount: number; failedCount: number };
+      submissions: Array<{ status: string; verificationRecordId: string | null }>;
+    } | null = null;
+    while (Date.now() < deadlineMs) {
+      const getRes = await page.request.get(
+        `${baseURL}/api/batches/${body.batchId}`,
+      );
+      expect(getRes.status()).toBe(200);
+      getBody = await getRes.json();
+      if (
+        ["completed", "partially_failed", "canceled"].includes(getBody!.batch.status)
+      ) {
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    expect(getBody).not.toBeNull();
+    expect(getBody!.batch.id).toBe(body.batchId);
+    expect(getBody!.batch.totalCount).toBe(3);
+    expect(getBody!.batch.completedCount).toBe(3);
+    expect(getBody!.batch.failedCount).toBe(0);
+    expect(getBody!.batch.status).toBe("completed");
+    expect(getBody!.submissions).toHaveLength(3);
+    for (const s of getBody!.submissions) {
       expect(s.status).toBe("verified");
       expect(s.verificationRecordId).toBeTruthy();
     }
-
-    // GET the batch.
-    const getRes = await page.request.get(`${baseURL}/api/batches/${body.batchId}`);
-    expect(getRes.status()).toBe(200);
-    const getBody = (await getRes.json()) as {
-      batch: { id: string; status: string; totalCount: number };
-      submissions: Array<{ status: string; verificationRecordId: string | null }>;
-    };
-    expect(getBody.batch.id).toBe(body.batchId);
-    expect(getBody.batch.totalCount).toBe(3);
-    expect(getBody.submissions).toHaveLength(3);
 
     // Render the batch detail page.
     await page.goto(`/batches/${body.batchId}`, { waitUntil: "networkidle" });

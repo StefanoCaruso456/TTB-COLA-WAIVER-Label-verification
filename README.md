@@ -144,21 +144,37 @@ Full diagram + trust boundaries: [`docs/architecture.md`](docs/architecture.md).
 
 ## Environment variables
 
+**Minimum to run** depends on the mode:
+
+| Mode | Required |
+|---|---|
+| Demo (no Gemini, no DB) | `USE_MOCK_EXTRACTION=true` |
+| Real Gemini, no audit history | `GEMINI_API_KEY` |
+| Real Gemini + audit history | `GEMINI_API_KEY` + `DATABASE_URL` |
+| All of the above + telemetry | also `BRAINTRUST_API_KEY` |
+
+### Required (under at least one mode)
+
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Postgres connection string. Required for persistence + the batch endpoints. |
+| `GEMINI_API_KEY` | Gemini API key. Required **unless** `USE_MOCK_EXTRACTION=true`. |
+| `BRAINTRUST_API_KEY` | Required only if you want telemetry. Unset = lazy no-op; nothing leaks. |
+
+### Optional — defaults in code, listed so operators know the knobs exist
+
 | Variable | Default | Purpose |
 |---|---|---|
-| `DATABASE_URL` | — | Postgres connection string. Required for persistence + batch endpoints. |
-| `GEMINI_API_KEY` | — | Required unless `USE_MOCK_EXTRACTION=true`. |
-| `GEMINI_MODEL` | `gemini-2.5-flash` | Override to a different Gemini model. |
 | `USE_MOCK_EXTRACTION` | `false` | `true` forces deterministic mock extraction (no Gemini call). |
-| `MAX_LABEL_IMAGES` | `10` | Upper bound on images per **single-label** verification. |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Override to a different Gemini model. |
+| `MAX_LABEL_IMAGES` | `10` | Upper bound on images per single-label verification. |
 | `IMAGE_PREPROCESS_ENABLED` | `true` | Resize uploads to ≤1280 px JPEG before Gemini. |
 | `EXTRACTION_DEBUG_LOG` | `false` | When `true`, log the first 2 KB of every Gemini response (operator debug). |
-| `BATCH_FILE_STORAGE_PATH` | `./.local/batch-files` | Storage root. Point at a Railway Volume in production. |
+| `BATCH_FILE_STORAGE_PATH` | `./.local/batch-files` | Batch storage root. Point at a Railway Volume in production. |
 | `BATCH_MAX_REQUEST_BYTES` | `209715200` (200 MB) | Cap on `POST /api/batches` body. |
 | `MAX_BATCH_FILES_OVERRIDE` | `200` | Files per batch. Hard ceiling 500. |
 | `BATCH_WORKER_CONCURRENCY` | `3` | Parallel Gemini calls per batch. Clamped 1..10. |
 | `BATCH_QUEUE_DEPTH_LIMIT` | `500` | Global `queued + processing` count above which POST returns 429. |
-| `BRAINTRUST_API_KEY` | — | Set to enable telemetry. Unset = lazy no-op; nothing leaks. |
 | `BRAINTRUST_PROJECT` | `ttb-cola-verifier` | Project name in Braintrust. |
 | `GEMINI_INPUT_USD_PER_M` | `0.30` | Cost-estimate input rate, $/1M tokens. |
 | `GEMINI_OUTPUT_USD_PER_M` | `2.50` | Cost-estimate output rate (incl. thinking), $/1M tokens. |

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AppShell } from "@/components/layout/AppShell";
+import { BatchProgressPoller } from "@/components/batch/BatchProgressPoller";
 import { getBatchById } from "@/lib/services/batch-service";
 
 export const dynamic = "force-dynamic";
@@ -66,6 +67,7 @@ export default async function BatchDetailPage({
 
   return (
     <AppShell>
+      <BatchProgressPoller status={batch.status} />
       <div className="mb-6 space-y-2">
         <Link href="/" className="text-xs text-slate-500 hover:underline">
           ← Back to Submissions

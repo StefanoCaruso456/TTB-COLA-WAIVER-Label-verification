@@ -41,7 +41,14 @@ describe("buildOcrPrompt — BUG-01 prompt tightening", () => {
   it("requires an entry for every listed target (no silent omission)", () => {
     const { userInstruction } = buildOcrPrompt(wineApp());
     expect(userInstruction).toMatch(/every listed target/i);
-    expect(userInstruction).toMatch(/value:\s*null/i);
+    expect(userInstruction).toMatch(/value\s+to\s+null|value:\s*null/i);
+  });
+
+  it("declares normalizedFields as a JSON object keyed by target name, not an array", () => {
+    const { userInstruction } = buildOcrPrompt(wineApp());
+    expect(userInstruction).toMatch(/normalizedFields MUST be a JSON object/);
+    expect(userInstruction).toMatch(/NOT an array/);
+    expect(userInstruction).toMatch(/"brandName":\s*\{/);
   });
 
   it("does not contain the old permissive omit-if-appropriate clause", () => {

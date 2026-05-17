@@ -1,0 +1,94 @@
+{
+  "batchMetadata": {
+    "clientName": "Acme Wines & Spirits",
+    "applicantName": "Stefano Caruso"
+  },
+  "submissions": [
+    {
+      "file_name": "wine-01.jpg",
+      "application": {
+        "applicationTypeStep": {
+          "productType": "wine",
+          "sourceOfProduct": "domestic",
+          "applicationType": "certificate_of_label_approval",
+          "isResubmission": false
+        },
+        "colaInformationStep": {
+          "brandName": "Cypress Hills",
+          "netContents": ["750 mL"],
+          "alcoholContent": "13.5% Alc./Vol.",
+          "countryOfOrigin": "USA",
+          "wine": { "vintageYear": 2021, "appellation": "Napa Valley" }
+        },
+        "uploadLabelsStep": {
+          "labelImages": [
+            {
+              "id": "manifest-1",
+              "fileName": "wine-01.jpg",
+              "mimeType": "image/jpeg",
+              "size": 0,
+              "labelImageType": "brand"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "file_name": "wine-02.jpg",
+      "application": {
+        "applicationTypeStep": {
+          "productType": "wine",
+          "sourceOfProduct": "domestic",
+          "applicationType": "certificate_of_label_approval",
+          "isResubmission": false
+        },
+        "colaInformationStep": {
+          "brandName": "Bayview Reserve",
+          "netContents": ["750 mL"],
+          "alcoholContent": "14.0% Alc./Vol.",
+          "countryOfOrigin": "USA",
+          "wine": { "vintageYear": 2020 }
+        },
+        "uploadLabelsStep": {
+          "labelImages": [
+            {
+              "id": "manifest-2",
+              "fileName": "wine-02.jpg",
+              "mimeType": "image/jpeg",
+              "size": 0,
+              "labelImageType": "brand"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "file_name": "spirits-01.jpg",
+      "application": {
+        "applicationTypeStep": {
+          "productType": "distilled_spirits",
+          "sourceOfProduct": "domestic",
+          "applicationType": "certificate_of_label_approval",
+          "isResubmission": false
+        },
+        "colaInformationStep": {
+          "brandName": "Iron Pier Rye",
+          "netContents": ["750 mL"],
+          "alcoholContent": "45.0% Alc./Vol.",
+          "countryOfOrigin": "USA"
+        },
+        "uploadLabelsStep": {
+          "labelImages": [
+            {
+              "id": "manifest-3",
+              "fileName": "spirits-01.jpg",
+              "mimeType": "image/jpeg",
+              "size": 0,
+              "labelImageType": "brand"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

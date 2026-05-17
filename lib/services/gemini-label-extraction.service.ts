@@ -134,6 +134,13 @@ export class GeminiLabelExtractionService implements LabelExtractionService {
       );
     }
 
+    if (process.env.EXTRACTION_DEBUG_LOG === "true") {
+      console.info(
+        "[gemini] raw response (truncated 2KB)",
+        text.slice(0, 2000),
+      );
+    }
+
     const result = extractedLabelSchema.safeParse(parsedJson);
     if (!result.success) {
       throw new GeminiExtractionError(

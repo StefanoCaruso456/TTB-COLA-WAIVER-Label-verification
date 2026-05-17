@@ -1,8 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  GEMINI_INPUT_USD_PER_M,
+  GEMINI_OUTPUT_USD_PER_M,
   LATENCY_SLO_MS,
+  computeBrandMatchScore,
   computeExtractionScores,
+  computeGeminiCostUsd,
   computeLatencyScore,
   computeVerificationScores,
   hashPrompt,
@@ -260,5 +264,58 @@ describe("computeLatencyScore", () => {
   it("accepts a custom SLO threshold", () => {
     expect(computeLatencyScore(8000, 10000)).toBe(1);
     expect(computeLatencyScore(11000, 10000)).toBe(0);
+  });
+});
+
+describe("computeGeminiCostUsd", () => {
+  it("returns 0 for missing usage", () => {
+    expect(computeGeminiCostUsd(undefined)).toBe(0);
+  });
+
+  it("bills thinking tokens at the output rate", () => {
+    const cost = computeGeminiCostUsd({
+      promptTokenCount: 1_000_000,
+      candidatesTokenCount: 1_000_000,
+      thoughtsTokenCount: 1_000_000,
+    });
+    expect(cost).toBeCloseTo(
+      GEMINI_INPUT_USD_PER_M + GEMINI_OUTPUT_USD_PER_M * 2,
+      4,
+    );
+  });
+
+  it("matches the reference trace (1344 in / 1144 out / 1275 thoughts)", () => {
+    const cost = computeGeminiCostUsd({
+      promptTokenCount: 1344,
+      candidatesTokenCount: 1144,
+      thoughtsTokenCount: 1275,
+    });
+    const expected =
+      (1344 / 1_000_000) * GEMINI_INPUT_USD_PER_M +
+      ((1144 + 1275) / 1_000_000) * GEMINI_OUTPUT_USD_PER_M;
+    expect(cost).toBeCloseTo(expected, 4);
+  });
+});
+
+describe("computeBrandMatchScore", () => {
+  it("returns 1 when no expected brand was provided (not applicable)", () => {
+    expect(computeBrandMatchScore(null, "Yeates")).toBe(1);
+    expect(computeBrandMatchScore("", "Yeates")).toBe(1);
+  });
+
+  it("returns 0 when expected is set but nothing was extracted", () => {
+    expect(computeBrandMatchScore("Yeates", null)).toBe(0);
+    expect(computeBrandMatchScore("Yeates", "")).toBe(0);
+  });
+
+  it("returns 1 for an exact match modulo casing/whitespace", () => {
+    expect(computeBrandMatchScore("yeates", "Yeates")).toBe(1);
+    expect(computeBrandMatchScore("  YEATES  ", "yeates")).toBe(1);
+  });
+
+  it("returns a fractional similarity for a typo", () => {
+    const score = computeBrandMatchScore("wine barell", "WINE BARREL");
+    expect(score).toBeGreaterThan(0.7);
+    expect(score).toBeLessThan(1);
   });
 });

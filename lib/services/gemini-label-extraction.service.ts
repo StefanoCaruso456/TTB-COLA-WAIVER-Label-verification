@@ -10,6 +10,7 @@ import type {
 import { buildOcrPrompt } from "./ocr-prompt-builder";
 import {
   computeExtractionScores,
+  computeGeminiCostUsd,
   computeLatencyScore,
   hashPrompt,
   summarizeRawText,
@@ -140,6 +141,16 @@ export class GeminiLabelExtractionService implements LabelExtractionService {
               systemInstruction: prompt.systemInstruction,
               responseMimeType: "application/json",
               temperature: 0.1,
+              // Disable Gemini 2.5 "thinking" tokens for this structured OCR
+              // task. Thinking adds ~5-7s of latency without measurable
+              // accuracy gain on schema-constrained extraction (observed in
+              // production traces: thoughtsTokens ~1275 on an 11s call).
+              // Cast: @google/genai 0.7 omits thinkingBudget from its
+              // ThinkingConfig type, but the REST API accepts it. Drop the
+              // cast once we upgrade past 0.10.
+              thinkingConfig: { thinkingBudget: 0 } as unknown as {
+                includeThoughts?: boolean;
+              },
             },
           }),
         );
@@ -204,6 +215,9 @@ export class GeminiLabelExtractionService implements LabelExtractionService {
           thoughtsTokenCount?: number;
         };
       }).usageMetadata;
+      const finishReason =
+        (response as { candidates?: Array<{ finishReason?: string }> })
+          .candidates?.[0]?.finishReason ?? "unknown";
 
       span.log({
         output: {
@@ -212,6 +226,7 @@ export class GeminiLabelExtractionService implements LabelExtractionService {
           inferredProductTypeConfidence:
             extractedLabel.inferredProductTypeConfidence,
           normalizedFieldKeys: Object.keys(extractedLabel.normalizedFields),
+          finishReason,
         },
         metrics: {
           geminiCallMs,
@@ -219,6 +234,7 @@ export class GeminiLabelExtractionService implements LabelExtractionService {
           completionTokens: usage?.candidatesTokenCount,
           totalTokens: usage?.totalTokenCount,
           thoughtsTokens: usage?.thoughtsTokenCount,
+          estimated_cost_usd: computeGeminiCostUsd(usage),
         },
         scores: {
           ...computeExtractionScores(extractedLabel, productType),

@@ -9,11 +9,16 @@ import type { VerificationRecordSummary } from "@/types/verification-record";
 import { resolveCommodityIntent } from "./commodity-router";
 import {
   type LabelExtractionService,
+  resolveExtractionMode,
 } from "./label-extraction.service";
 import { getExtractionService } from "./extraction-service-factory";
 import { verifyApplication } from "./verification.service";
 import { createVerificationRecord } from "./verification-record.service";
 import { preprocessImage } from "./image-preprocess";
+import {
+  computeVerificationScores,
+  tracedVerify,
+} from "@/lib/observability/braintrust";
 
 export interface RunVerificationInput {
   clientName?: string;
@@ -83,91 +88,140 @@ export async function runVerification(
     ]);
   }
 
-  const extractionService =
-    input.extractionService ?? getExtractionService();
+  return tracedVerify(async (span) => {
+    span.log({
+      input: {
+        productType: application.applicationTypeStep.productType,
+        sourceOfProduct: application.applicationTypeStep.sourceOfProduct,
+        applicationType: application.applicationTypeStep.applicationType,
+        isResubmission: application.applicationTypeStep.isResubmission,
+        brandNameExpected: application.colaInformationStep.brandName,
+        imageCount: input.images.length,
+      },
+      metadata: {
+        productType: application.applicationTypeStep.productType,
+        sourceOfProduct: application.applicationTypeStep.sourceOfProduct,
+        applicationType: application.applicationTypeStep.applicationType,
+        isResubmission: application.applicationTypeStep.isResubmission,
+        extractionMode: input.extractionService
+          ? "injected"
+          : resolveExtractionMode(),
+        mockScenario: input.mockScenario,
+        batchSubmissionId: input.batchSubmissionId,
+        clientName: input.clientName,
+        applicantName: input.applicantName,
+        productName: input.productName,
+        imageCount: input.images.length,
+      },
+    });
 
-  const envFlag = process.env.IMAGE_PREPROCESS_ENABLED;
-  const preprocessEnabled =
-    envFlag === undefined ? true : envFlag.toLowerCase() !== "false";
-  const shouldPreprocess =
-    preprocessEnabled && !input.skipImagePreprocess && !input.mockScenario;
+    const extractionService =
+      input.extractionService ?? getExtractionService();
 
-  let imagesForExtraction = input.images;
-  let imagePreprocessSummary: RunVerificationResult["imagePreprocess"];
+    const envFlag = process.env.IMAGE_PREPROCESS_ENABLED;
+    const preprocessEnabled =
+      envFlag === undefined ? true : envFlag.toLowerCase() !== "false";
+    const shouldPreprocess =
+      preprocessEnabled && !input.skipImagePreprocess && !input.mockScenario;
 
-  if (shouldPreprocess) {
-    const start = Date.now();
-    let originalSum = 0;
-    let resizedSum = 0;
-    imagesForExtraction = await Promise.all(
-      input.images.map(async (image) => {
-        if (!image.base64) return image;
-        try {
-          const inputBuffer = Buffer.from(image.base64, "base64");
-          const result = await preprocessImage(inputBuffer);
-          originalSum += result.originalSizeKB;
-          resizedSum += result.resizedSizeKB;
-          return {
-            ...image,
-            base64: result.buffer.toString("base64"),
-            mimeType: result.mimeType,
-            size: result.buffer.byteLength,
-          };
-        } catch (err) {
-          // Don't fail the verification if one image is unreadable by sharp —
-          // pass through and let the extractor surface a clearer error.
-          console.warn(
-            `[orchestrator] image preprocess failed for ${image.id}; passing original through`,
-            err,
-          );
-          return image;
-        }
-      }),
-    );
-    imagePreprocessSummary = {
-      originalSizeKB: originalSum,
-      resizedSizeKB: resizedSum,
-      durationMs: Date.now() - start,
-    };
-  }
+    let imagesForExtraction = input.images;
+    let imagePreprocessSummary: RunVerificationResult["imagePreprocess"];
 
-  const extractedLabel = await extractionService.extract({
-    application,
-    images: imagesForExtraction,
-    mockScenario: input.mockScenario,
-  });
+    if (shouldPreprocess) {
+      const start = Date.now();
+      let originalSum = 0;
+      let resizedSum = 0;
+      imagesForExtraction = await Promise.all(
+        input.images.map(async (image) => {
+          if (!image.base64) return image;
+          try {
+            const inputBuffer = Buffer.from(image.base64, "base64");
+            const result = await preprocessImage(inputBuffer);
+            originalSum += result.originalSizeKB;
+            resizedSum += result.resizedSizeKB;
+            return {
+              ...image,
+              base64: result.buffer.toString("base64"),
+              mimeType: result.mimeType,
+              size: result.buffer.byteLength,
+            };
+          } catch (err) {
+            // Don't fail the verification if one image is unreadable by sharp —
+            // pass through and let the extractor surface a clearer error.
+            console.warn(
+              `[orchestrator] image preprocess failed for ${image.id}; passing original through`,
+              err,
+            );
+            return image;
+          }
+        }),
+      );
+      imagePreprocessSummary = {
+        originalSizeKB: originalSum,
+        resizedSizeKB: resizedSum,
+        durationMs: Date.now() - start,
+      };
+    }
 
-  const commodityIntent = resolveCommodityIntent({
-    selectedProductType: application.applicationTypeStep.productType,
-    inferredProductType: extractedLabel.inferredProductType,
-    inferredConfidence: extractedLabel.inferredProductTypeConfidence,
-  });
+    const extractedLabel = await extractionService.extract({
+      application,
+      images: imagesForExtraction,
+      mockScenario: input.mockScenario,
+    });
 
-  const report = verifyApplication({
-    application,
-    extractedLabel,
-    commodityIntent,
-  });
+    const commodityIntent = resolveCommodityIntent({
+      selectedProductType: application.applicationTypeStep.productType,
+      inferredProductType: extractedLabel.inferredProductType,
+      inferredConfidence: extractedLabel.inferredProductTypeConfidence,
+    });
 
-  let record: VerificationRecordSummary | undefined;
-  if (input.persist !== false) {
-    record = await createVerificationRecord({
-      clientName: input.clientName,
-      applicantName: input.applicantName,
-      productName: input.productName,
+    const report = verifyApplication({
       application,
       extractedLabel,
-      report,
-      imageMetadata: input.images,
-      batchSubmissionId: input.batchSubmissionId,
+      commodityIntent,
     });
-  }
 
-  return {
-    record,
-    report,
-    extractedLabel,
-    application,
-    imagePreprocess: imagePreprocessSummary,
-  };
+    let record: VerificationRecordSummary | undefined;
+    if (input.persist !== false) {
+      record = await createVerificationRecord({
+        clientName: input.clientName,
+        applicantName: input.applicantName,
+        productName: input.productName,
+        application,
+        extractedLabel,
+        report,
+        imageMetadata: input.images,
+        batchSubmissionId: input.batchSubmissionId,
+      });
+    }
+
+    span.log({
+      output: {
+        overallStatus: report.overallStatus,
+        overallConfidence: report.overallConfidence,
+        recordId: record?.id ?? null,
+        auditSummary: report.auditSummary,
+        inferredProductType: extractedLabel.inferredProductType,
+      },
+      metadata: {
+        recordId: record?.id ?? null,
+        commodityConflict: commodityIntent.conflictDetected,
+        inferredProductType: extractedLabel.inferredProductType,
+        originalSizeKB: imagePreprocessSummary?.originalSizeKB,
+        resizedSizeKB: imagePreprocessSummary?.resizedSizeKB,
+      },
+      metrics: {
+        imagePreprocessMs: imagePreprocessSummary?.durationMs ?? 0,
+      },
+      scores: computeVerificationScores(report),
+    });
+
+    return {
+      record,
+      report,
+      extractedLabel,
+      application,
+      imagePreprocess: imagePreprocessSummary,
+    };
+  });
 }

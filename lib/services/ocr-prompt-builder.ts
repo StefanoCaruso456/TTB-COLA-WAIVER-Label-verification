@@ -34,7 +34,6 @@ Rules:
 - Each extracted field should include: value, normalizedValue (optional), confidence (0-1), evidenceText (the surrounding text you read), and labelImageType when known.
 - labelImageType MUST be one of these exact strings: "brand", "back", "neck", "side", "strip", "other", "unknown". The front of the bottle / primary label is "brand" (NOT "front"). If a field appears on multiple panels (e.g. both front and back), pick the most prominent one and note the duplication in evidenceText. If unsure, use "unknown".
 - For netContents and grapeVarietals, return arrays of values when multiple appear.
-- Provide rawText: a single string containing the concatenated readable text from all images.
 - Provide inferredProductType (one of: wine, domestic_sake, distilled_spirits, malt_beverage) and inferredProductTypeConfidence (0-1). The user selection is authoritative — your inference is a soft signal only.
 - Provide imageQuality with blurRisk/glareRisk/lowLightRisk/orientationRisk (low|medium|high) and overallReadability (good|fair|poor).
 - Do NOT decide whether the label complies with regulations. Do not output any opinion about approval.

@@ -1,263 +1,333 @@
 # TTB LabelCheck AI
 
-AI-assisted alcohol label verification prototype, inspired by the TTB COLAs
-Online workflow.
+> AI-assisted alcohol-beverage label verification — a TTB COLAs Online-style reviewer experience that extracts label content with Gemini and runs deterministic field-by-field compliance checks against the application.
+
+Built as a take-home for the AI-Powered Alcohol Label Verification project. Single-label and batch (up to 200 labels per submission) workflows. End-to-end observability via Braintrust. ~3–4 s per Gemini extraction in production.
+
+**Live demo:** _set me on Railway — the deploy URL goes here_
+
+---
+
+## Table of contents
+
+- [What it does](#what-it-does)
+- [Quick start (local)](#quick-start-local)
+- [Stack](#stack)
+- [Architecture](#architecture)
+- [Features shipped](#features-shipped)
+- [Environment variables](#environment-variables)
+- [Testing](#testing)
+- [Fixture evals](#fixture-evals)
+- [Deploying to Railway](#deploying-to-railway)
+- [Repo layout](#repo-layout)
+- [Approach & key decisions](#approach--key-decisions)
+- [Assumptions & limitations](#assumptions--limitations)
+- [Roadmap & status](#roadmap--status)
+- [License](#license)
+
+---
+
+## What it does
 
 A compliance reviewer can:
 
-1. Pick a product type (wine / domestic sake / distilled spirits / malt beverage).
-2. Enter COLA-style application data.
-3. Upload one or more label images (up to 10).
-4. Run an AI extraction + deterministic field-level verification.
-5. See a human-reviewable report with per-field match / mismatch / missing /
-   needs-review statuses.
-6. Save every verification as an audit record.
+1. **Single label** — pick a product type, enter COLA-style application data, upload up to 10 images of one bottle (front / back / neck), and get a field-by-field verification report.
+2. **Batch** — upload up to 200 labels in one submission with a CSV or JSON manifest pairing each image to its application data. The async worker drains the queue with bounded concurrency and the `/batches/:id` page polls for live progress.
+3. **Audit** — every verification is persisted with the full application + extraction + comparator output as a `VerificationRecord` reviewers can browse later.
 
-This prototype **assists** human reviewers. It does not auto-approve labels,
-replace legal judgment, or integrate with COLAs Online. See
-[`docs/assumptions-and-limitations.md`](docs/assumptions-and-limitations.md).
+The tool **assists** human reviewers — it never auto-approves, never makes a legal determination, and never submits to COLAs Online.
+
+---
+
+## Quick start (local)
+
+```bash
+git clone https://github.com/StefanoCaruso456/TTB-COLA-WAIVER-Label-verification.git
+cd TTB-COLA-WAIVER-Label-verification
+
+npm install
+cp .env.example .env
+
+# Demo mode: zero external dependencies (no Gemini key, no Postgres needed).
+echo "USE_MOCK_EXTRACTION=true" >> .env
+npm run dev
+# open http://localhost:3000/new
+```
+
+For the Gemini path, set `GEMINI_API_KEY` and unset `USE_MOCK_EXTRACTION`. For persistence and the batch endpoints, set `DATABASE_URL` (Postgres) and run `npm run prisma:migrate:dev`.
+
+---
 
 ## Stack
 
-- Next.js 16 (App Router) · TypeScript · Tailwind v4
-- Zod schemas for application + extracted-label validation
-- Prisma + Postgres for verification history
-- `@google/genai` for Gemini-powered OCR/vision extraction
-- Plain TypeScript orchestration (no LangChain / LangGraph in MVP — see
-  [`docs/pre-research-decisions.md`](docs/pre-research-decisions.md))
-- Vitest for deterministic-logic tests
+| Layer | Choice | Why |
+|---|---|---|
+| Framework | Next.js 16 (App Router) + React 19 | Server-rendered pages + API routes in one tree; fits the prototype scope without microservices |
+| Language | TypeScript (strict) | End-to-end types from Zod schemas through the comparator pipeline |
+| Validation | Zod | Same schemas validate inbound requests and infer all public types |
+| Database | Prisma + Postgres | `VerificationRecord`, `Batch`, `BatchSubmission`; migrations checked in |
+| AI | `@google/genai` 1.52 + `gemini-2.5-flash` | Multimodal OCR + structured-output mode; thinking disabled for latency |
+| Image pipeline | `sharp` | Resize to 1280 px max edge, JPEG 85% — ~85% payload reduction |
+| Telemetry | Braintrust SDK | One `verify` parent span + one `gemini.extract` child per call; latency, cost, token, and scoring metrics |
+| Storage | Filesystem (`LocalDiskFileStorage`) | Content-addressed; deploys to a Railway Volume in production |
+| Testing | Vitest (unit) + Playwright (E2E) | Deterministic comparators + endpoint coverage |
+
+No LangChain / LangGraph in the MVP — the orchestration is direct TS calls. Rationale in [`docs/pre-research-decisions.md`](docs/pre-research-decisions.md).
+
+---
 
 ## Architecture
 
 ```
-UI form (App Router)
-  → POST /api/verify
-    → verification-orchestrator
-        → Zod-validate application + images
-        → label-extraction service (mock | Gemini)
-        → commodity-router (user selection is source of truth)
-        → verification.service (deterministic comparators)
-        → verification-record.service (Prisma → Postgres)
-    → returns { recordId, report }
+                  ┌──────────────────────────────────────────────┐
+                  │            Next.js App Router                │
+                  │                                              │
+   /new      ───► │  pages: /new, /batches/[id], /verification/  │
+                  │  api:   /api/verify, /api/batches            │
+                  └────────────────────┬─────────────────────────┘
+                                       │
+                                       ▼
+                  ┌──────────────────────────────────────────────┐
+                  │           verification-orchestrator          │
+                  │   parses → preprocesses → extracts →         │
+                  │   routes commodity → compares → persists     │
+                  └─┬──────────────┬──────────────┬──────────────┘
+                    │              │              │
+                    ▼              ▼              ▼
+         ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+         │   sharp      │  │  Gemini      │  │  Prisma /    │
+         │  preprocess  │  │  extraction  │  │  Postgres    │
+         └──────────────┘  │  (mock/real) │  └──────────────┘
+                           └──────┬───────┘
+                                  │
+                                  ▼
+                           ┌──────────────┐
+                           │ comparators  │
+                           │ (TS, no LLM) │
+                           └──────────────┘
+
+   Batch path:  POST → write files + queue → 202 → background worker drains
+                with bounded concurrency → UI polls /batches/:id every 2s.
+
+   Telemetry:   every verify call emits a `verify` span (input/output/
+                metadata/latency/scores) with a `gemini.extract` child span
+                (tokens, cost, finishReason). Off when BRAINTRUST_API_KEY
+                is unset; lazy `initLogger` so it's a true no-op.
 ```
 
-Full picture: [`docs/architecture.md`](docs/architecture.md).
+Full diagram + trust boundaries: [`docs/architecture.md`](docs/architecture.md).
 
-## Getting started
+---
 
-```bash
-# 1. Install
-npm install
+## Features shipped
 
-# 2. Configure
-cp .env.example .env
-# Edit .env — at minimum, USE_MOCK_EXTRACTION=true is enough to demo without Gemini.
+| Capability | Status | Where |
+|---|:---:|---|
+| Single-label verification with mock + Gemini extraction | ✓ | `/new` (Standard mode) |
+| Multi-label batch (up to 200 per submission, manifest-driven) | ✓ | `/new` (Batch mode) → `POST /api/batches` → `/batches/:id` |
+| CSV manifest with header aliases (4+ per required field) | ✓ | `lib/services/manifest-parser.ts` |
+| JSON manifest with Zod validation | ✓ | same |
+| Pre-flight validation (orphan rows, orphan files, dup names) | ✓ | `lib/services/manifest-validator.ts` |
+| Async worker + bounded concurrency (default 3, env-tunable 1–10) | ✓ | `lib/services/batch-worker.ts` |
+| Startup recovery (requeue rows stranded by process restart) | ✓ | `instrumentation.ts` + `lib/services/batch-recovery.ts` |
+| Backpressure (429 at 500-row global queue depth) | ✓ | `app/api/batches/route.ts` |
+| Live progress polling on `/batches/:id` | ✓ | `components/batch/BatchProgressPoller.tsx` |
+| Persistent audit history (`VerificationRecord`) | ✓ | `prisma/schema.prisma` |
+| Content-addressed file storage (Railway Volume in prod) | ✓ | `lib/services/file-storage-disk.ts` |
+| Image preprocessing (1280 px max, JPEG 85%) | ✓ | `lib/image-preprocess.ts` |
+| Braintrust telemetry (parent + child spans, latency/cost/scores) | ✓ | `lib/observability/braintrust.ts` |
+| Eval harness (mock + live fixtures, CI gate) | ✓ | `evals/` + `npm run eval:quick \| eval:full` |
+| Per-call cost telemetry (`estimated_cost_usd`) | ✓ | env-tunable rates |
+| Per-call SLO scoring (`*.latencyUnder5s` 1/0) | ✓ | reads in Braintrust Monitor view as "% under SLO" |
 
-# 3. Generate Prisma client (also runs as part of `npm run build`)
-npm run prisma:generate
-
-# 4. If you have a Postgres database, run migrations
-npm run prisma:migrate:dev
-
-# 5. Run dev server
-npm run dev
-# http://localhost:3000
-```
-
-The app works **without** a Gemini key as long as `USE_MOCK_EXTRACTION=true`.
-The mock extractor returns deterministic, scenario-driven extraction data so
-you can demo verifications and load sample cases without external calls.
-
-The app also works **without** Postgres — the home page will surface a
-"Database not configured" notice, and saving to history will fail, but you can
-still run verifications from `/new` and see reports.
+---
 
 ## Environment variables
 
-| Variable | Purpose |
-| --- | --- |
-| `DATABASE_URL` | Postgres connection string (Railway or local). Required for persistence. |
-| `GEMINI_API_KEY` | Gemini API key. Required only when `USE_MOCK_EXTRACTION` is not `true`. |
-| `USE_MOCK_EXTRACTION` | `true` forces the mock extractor; otherwise Gemini is used (falling back to mock if no key). |
-| `GEMINI_MODEL` | Gemini model id (default `gemini-2.5-flash`). |
-| `MAX_LABEL_IMAGES` | Upper bound on images per verification (default 10). |
-| `IMAGE_PREPROCESS_ENABLED` | Resize uploads to ≤1280px JPEG before Gemini (default `true`). |
-| `BATCH_FILE_STORAGE_PATH` | Root directory for batch label files (default `./.local/batch-files`). Point at a Railway Volume mount in production. Used by `LocalDiskFileStorage` once Phase 3 wires it in. |
+| Variable | Default | Purpose |
+|---|---|---|
+| `DATABASE_URL` | — | Postgres connection string. Required for persistence + batch endpoints. |
+| `GEMINI_API_KEY` | — | Required unless `USE_MOCK_EXTRACTION=true`. |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Override to a different Gemini model. |
+| `USE_MOCK_EXTRACTION` | `false` | `true` forces deterministic mock extraction (no Gemini call). |
+| `MAX_LABEL_IMAGES` | `10` | Upper bound on images per **single-label** verification. |
+| `IMAGE_PREPROCESS_ENABLED` | `true` | Resize uploads to ≤1280 px JPEG before Gemini. |
+| `EXTRACTION_DEBUG_LOG` | `false` | When `true`, log the first 2 KB of every Gemini response (operator debug). |
+| `BATCH_FILE_STORAGE_PATH` | `./.local/batch-files` | Storage root. Point at a Railway Volume in production. |
+| `BATCH_MAX_REQUEST_BYTES` | `209715200` (200 MB) | Cap on `POST /api/batches` body. |
+| `MAX_BATCH_FILES_OVERRIDE` | `200` | Files per batch. Hard ceiling 500. |
+| `BATCH_WORKER_CONCURRENCY` | `3` | Parallel Gemini calls per batch. Clamped 1..10. |
+| `BATCH_QUEUE_DEPTH_LIMIT` | `500` | Global `queued + processing` count above which POST returns 429. |
+| `BRAINTRUST_API_KEY` | — | Set to enable telemetry. Unset = lazy no-op; nothing leaks. |
+| `BRAINTRUST_PROJECT` | `ttb-cola-verifier` | Project name in Braintrust. |
+| `GEMINI_INPUT_USD_PER_M` | `0.30` | Cost-estimate input rate, $/1M tokens. |
+| `GEMINI_OUTPUT_USD_PER_M` | `2.50` | Cost-estimate output rate (incl. thinking), $/1M tokens. |
 
-## Sample scenarios
+A complete template lives in [`.env.example`](.env.example).
 
-The `/new` page exposes "Try a sample scenario" buttons. Each sample drives
-the mock extractor through a known case:
-
-- **Wine — clean pass**: domestic Cabernet that should pass automated checks.
-- **Wine — ABV mismatch**: extracted ABV diverges from the application.
-- **Spirits — clean pass**: bourbon with same-field-of-vision review flag.
-- **Spirits — missing government warning**: triggers an error-level missing warning check.
-- **Malt — clean pass**: lager with ingredient disclosure handling.
-- **Imported wine — missing country of origin**: imported product where the label is missing its origin statement.
-
-Sample JSON lives in [`data/samples/`](data/samples).
+---
 
 ## Testing
 
 ```bash
-npm test
+npm test                  # Vitest unit + integration suite
+npx tsc --noEmit          # Strict typecheck
+npm run lint              # ESLint (Next.js config)
+npm run build             # Production build (runs prisma generate)
+npm run test:e2e          # Playwright E2E (needs a local dev server + Postgres)
 ```
 
-Tests cover deterministic logic only — the AI/Gemini call paths are not
-asserted against a live model:
+Suite at last commit: **208 unit tests pass** across 25 files. Coverage:
 
-- `normalizeText`, `similarity`
-- `compareBrand`, `compareAlcoholContent`, `compareVolumes`,
-  `compareGovernmentWarning`, `compareCountryOfOrigin`
-- `resolveCommodityIntent`
-- Zod cross-field validation on `colaApplicationSchema`
-- End-to-end `verifyApplication` against the mock extractor for the
-  documented sample scenarios
-- Image preprocessing (`sharp`), Gemini 503 retry, judge function
+- Text normalization, similarity, brand / ABV / volume / warning / country comparators
+- Commodity router, OCR target maps, image preprocessing
+- Gemini 503-retry policy, JSON-fence stripping
+- All Zod schemas (application, extracted label, batch APIs, manifest)
+- Manifest parser (CSV + JSON), validator, header aliases
+- Braintrust tracer (no-op without API key), scorers, cost / latency helpers
+- Async batch worker concurrency resolver
 
-## Fixture-based evals
+The full Gemini path is **not** asserted against the live model in unit tests — that's the job of the fixture eval suite below.
 
-A second tier of testing drives the live `/api/verify` endpoint against a
-directory of categorized fixtures. The runner posts each fixture and
-asserts category-level expectations on the verification report.
+---
+
+## Fixture evals
+
+A second tier drives a deployed instance against categorized fixtures:
 
 ```bash
-# Start dev server in one terminal:
-npm run dev
+npm run dev                               # in one terminal
 
-# In another terminal, run the smoke sweep (one fixture per category, ~1s):
-npm run eval:quick
-
-# Or run the full sweep (10 fixtures across 6 categories):
-npm run eval:full
-
-# Target a deployed instance instead of localhost:
-npm run eval:full -- --url=https://your-deployment.up.railway.app
-
-# Run a subset:
+npm run eval:quick                        # smoke sweep, one per category, ~1s
+npm run eval:full                         # 10 fixtures across 6 categories
+npm run eval:full -- --url=https://...    # target a deployed instance
 npm run eval:full -- --only=02-mismatch-abv-wine,03-missing-warning-spirits
-
-# Show per-check details on failures:
-npm run eval:full -- --verbose
+npm run eval:full -- --verbose            # per-check details on failure
 ```
 
-Fixtures live in [`evals/fixtures/generated/`](evals/fixtures/generated)
-with a `manifest.json` describing categories and expectations. See
-[`docs/specs/phase-1-eval-infrastructure.md`](docs/specs/phase-1-eval-infrastructure.md)
-for the design.
+Fixtures + manifest in [`evals/fixtures/generated/`](evals/fixtures/generated). Design: [`docs/specs/phase-1-eval-infrastructure.md`](docs/specs/phase-1-eval-infrastructure.md). CI runs `eval:quick` on every PR.
 
-CI runs `eval:quick` automatically in the `e2e` job.
-
-## Verification status model
-
-Per check: `status ∈ {match, likely_match, mismatch, missing, not_applicable,
-needs_review}`, `severity ∈ {info, warning, error}`, `automationLevel ∈
-{automated, partially_automated, human_review_required}`.
-
-Overall report status:
-
-- **fail** — any error-level missing/mismatch on a critical required field.
-- **needs_review** — any warning, likely_match, image-quality flag, or
-  human-review-required check.
-- **pass** — every required check matched.
+---
 
 ## Deploying to Railway
 
-1. Create a new Railway project.
-2. Add a **Postgres** plugin. Railway exposes `DATABASE_URL` automatically.
-3. Deploy the repo as a service. Set env vars:
-   - `GEMINI_API_KEY` (or leave blank with `USE_MOCK_EXTRACTION=true`)
-   - `USE_MOCK_EXTRACTION=true` for guaranteed demo reliability
-4. Railway will run `npm run build`, which executes `prisma generate`
-   followed by `next build`. Migrations can be applied with
-   `npm run prisma:migrate` as a release/predeploy step (or once manually).
-5. Open the deployed URL → `/` for the dashboard, `/new` to run a
-   verification.
+1. Create a Railway project; add the **Postgres** plugin. `DATABASE_URL` is exposed automatically.
+2. Deploy this repo as a service. Build command: `npm run build` (runs `prisma generate` then `next build`). Start command: `npm start`.
+3. Set env vars per the table above. At minimum:
+   - `GEMINI_API_KEY` (or `USE_MOCK_EXTRACTION=true` for a demo-safe deploy)
+   - `BATCH_FILE_STORAGE_PATH=/data/batch-files` if you attach a Railway Volume
+   - `BRAINTRUST_API_KEY` if you want telemetry
+4. Apply migrations on first deploy: `npm run prisma:migrate` as a release step (or once manually via the Railway shell).
+5. Open `/new` to run a verification.
 
-## Project layout
+---
+
+## Repo layout
 
 ```
-app/                          Next.js App Router pages + API routes
-  api/verify                  POST → run verification
-  api/verifications           GET → history
-  api/verifications/[id]      GET / PATCH → single record
-  new                         New verification flow
-  verification/[id]           Saved report detail
+app/                                     Next.js App Router
+  new/                                   single + batch UI (mode toggle)
+  batches/[id]/                          live-polling batch detail
+  verification/[id]/                     saved report detail
+  api/verify/                            POST → single-label verify
+  api/batches/                           POST (202) + GET batch state
+  api/verifications/                     GET history, GET/PATCH one record
 
-components/                   Presentational React components
-  layout/AppShell.tsx
-  verification/...            Form, results, history components
+components/
+  layout/AppShell.tsx                    chrome
+  verification/                          NewVerificationFlow, BatchVerificationFlow,
+                                         VerificationModeSwitcher, results cards
+  batch/BatchProgressPoller.tsx          2s router.refresh while in-flight
 
 lib/
-  schemas/                    Zod schemas (application, extracted label, report, record)
-  rules/                      OCR target maps, product rule sets, government warning text
-  services/                   commodity-router, extraction services, orchestrator, verification, persistence
-  verification/               Pure comparators (brand/abv/volume/warning/country/image quality + product-specific)
+  schemas/                               Zod (application, extracted-label, batch-api,
+                                         manifest, batch.schema)
+  rules/                                 OCR targets, product rule sets, gov-warning text
+  services/                              orchestrator, extraction (mock + Gemini),
+                                         comparator runner, persistence, batch service,
+                                         manifest parser/validator, async worker, recovery
+  verification/                          pure comparators (brand, ABV, volume, warning,
+                                         country, image quality, product-specific)
+  observability/                         Braintrust tracer, scorers, cost & SLO helpers
+  image-preprocess.ts                    sharp pipeline
 
-prisma/
-  schema.prisma               VerificationRecord model
+prisma/                                  VerificationRecord, Batch, BatchSubmission
 
-data/samples/                 JSON sample scenarios + loader
+data/samples/                            mock-mode scenarios + sample manifests (CSV + JSON)
 
-types/                        Public type re-exports inferred from Zod schemas
+evals/                                   fixture-driven eval harness
 
-tests/                        Vitest unit + integration tests
+instrumentation.ts                       Next.js boot hook (batch recovery sweep)
 
 docs/
-  pre-research-decisions.md   Locked architectural decisions
-  architecture.md             High-level diagram + trust boundaries
-  requirements-map.md         Step → fields → OCR targets → rules mapping
+  architecture.md
   assumptions-and-limitations.md
+  pre-research-decisions.md
+  requirements-map.md
+  roadmap.md
+  bugs.md
+  specs/                                 per-phase + per-bug specs
+
+tests/                                   Vitest
+tests-e2e/                               Playwright
 ```
 
-## Agent skills
+---
 
-This repo bundles a few [open agent skills](https://skills.sh) that help
-when iterating on the UI and on extensibility. Skills are checked in
-under `.claude/skills/` (for Claude Code) and `.agents/skills/` (for
-non-Claude agents). The exact source + version of each skill is pinned
-in [`skills-lock.json`](skills-lock.json).
+## Approach & key decisions
 
-| Skill | Source | What it's for |
-| --- | --- | --- |
-| `find-skills` | `vercel-labs/skills` | Discover and install additional skills when the team needs new capabilities. |
-| `frontend-design` | `anthropics/skills` | Distinctive, production-grade frontend design guidance when iterating on the new-verification UI. |
-| `web-design-guidelines` | `vercel-labs/agent-skills` | Review UI code against Vercel's Web Interface Guidelines (accessibility, UX, layout). |
+The brief asked for a tool that's accurate, fast, easy to operate, and honest about its limits. The decisions below all serve those goals.
 
-Manage skills with the [Skills CLI](https://skills.sh):
+1. **Deterministic comparators, not LLM judgments.** Every compliance call (match / mismatch / missing / not-applicable / needs-review) comes from a typed comparator in `lib/verification/`. The model only **extracts** what's visible on the label; the model never decides whether a label complies. This makes failures auditable and makes regressions findable in unit tests.
 
-```bash
-npx skills list                        # what's installed
-npx skills update -p                   # update project skills
-npx skills add <owner/repo> -s <name>  # add another skill
-```
+2. **Structured-output Gemini with `responseMimeType: "application/json"` + a strict Zod schema.** Anything the model returns that doesn't match `extractedLabelSchema` becomes a typed error with the response prefix + `finishReason` in the error detail, so operators can see *why* extraction failed without redeploying.
 
-Per-user permission grants (`.claude/settings.local.json`) are
-gitignored — only shared skill content is tracked.
+3. **Thinking disabled on Gemini 2.5-flash.** A live incident showed `thoughtsTokens: 62 911` on one call, pushing latency to ~4 min and cost to $0.16. The SDK at the time stripped `thinkingBudget` silently, so we upgraded `@google/genai` 0.7 → 1.52 to make the field actually reach the API. Same model, ~30× faster, ~35× cheaper. Documented in `docs/bugs.md` (closed) and `docs/specs/`.
 
-## Limitations
+4. **Image preprocessing before Gemini.** 1280 px max edge + JPEG 85% via `sharp`. Roughly 85% payload reduction; ~3× latency improvement on large uploads. Toggleable via `IMAGE_PREPROCESS_ENABLED`.
+
+5. **In-process async worker for batch.** Fire-and-forget Promise after the POST response; bounded concurrency; startup recovery requeues rows stranded by a process restart. Simpler than a separate worker service; sufficient for the prototype. Documented limitation: a SIGKILL between `verify` success and the status transition can leave a `VerificationRecord` without its `BatchSubmission` link until the next sweep (Phase 7 idempotency work).
+
+6. **Spec-first workflow.** Every non-trivial change starts as a Draft spec in `docs/specs/` and moves to Approved before code is written. `docs/roadmap.md` defines the schedule; the specs define the contracts. Every closed bug links the PRs that fixed it + the trace that confirmed it live.
+
+7. **End-to-end observability for free.** Braintrust spans wrap the verification orchestrator and the Gemini call. Latency, cost, tokens, finishReason, brand-match similarity, and per-field coverage scores are all logged. The Monitor view answers "what % of calls are under 5 s?" without a separate metrics stack. No-op when `BRAINTRUST_API_KEY` is unset.
+
+---
+
+## Assumptions & limitations
+
+The honest version: [`docs/assumptions-and-limitations.md`](docs/assumptions-and-limitations.md). Highlights:
 
 - **No COLAs integration.** Nothing is submitted to TTB from this tool.
-- **No auto-approval.** Compliance/approval decisions are human-only.
-- **Typography is out of automated scope.** Bold detection, font-size,
-  same-field-of-vision, and exact layout positioning surface as
-  `human_review_required` rather than auto-pass/auto-fail.
-- **Image storage is metadata-only in MVP.** Binary content is processed in
-  the request and not persisted as durable files.
-- **Domestic sake reuses shared schema in MVP.** Wine-like optional fields
-  are evaluated only when entered. A full sake-specific rule set is deferred.
+- **No auto-approval.** Compliance decisions are human-only.
+- **5 s SLO not always met.** Single calls land at ~7–8 s on labels with many fields, because vision-token processing + structured output is inherently slow. The Gemini call itself is ~3–4 s. Levers (image downscale, prompt trim) are documented; deferred.
+- **Typography is out of automated scope.** Bold detection, font-size, same-field-of-vision, exact layout positioning all surface as `human_review_required`.
+- **In-process worker.** A process restart strands in-flight `processing` rows; startup recovery requeues them on next boot (≤10 min delay). A separate Railway worker service is the right long-term move.
+- **Backpressure race.** Two concurrent POSTs can both pass the 500-row queue check. Acceptable for prototype; DB-side advisory lock is Phase 7.
+- **Domestic sake reuses shared schema.** Wine-like optional fields evaluated only when entered. A full sake-specific rule set is deferred.
 
-## Future improvements
+---
 
-- Replace metadata-only image storage with S3-compatible object storage.
-- Add LangGraph-based orchestration only if/when batch review,
-  human-in-the-loop, or retry loops become first-class requirements.
-- PDF / structured CSV export of the verification report.
-- Multi-user auth + reviewer assignments.
-- Real same-field-of-vision detection using bounding-box geometry.
+## Roadmap & status
+
+| Phase | Status |
+|---|:---:|
+| 0 — Foundation (Next.js scaffold, mock extractor, single-label verify) | ✓ Done |
+| 1 — Eval infrastructure (fixture harness + CI gate) | ✓ Done |
+| 2 — Data model & storage abstraction (Prisma + `FileStorage`) | ✓ Done |
+| 3 — Synchronous batch (≤5 files, inline applications) | ✓ Done |
+| 4 — Manifest support (CSV + JSON, header aliases, validation) | ✓ Done |
+| 5 — Async queue + worker (200-file batches, polling UI) | ✓ Done |
+| 6 — Batch UI polish (drag-drop, previews, inline drill-down) | Partial |
+| 7 — Hardening + scale test (idempotency, advisory locks, load test) | Deferred |
+| 8 — Operational polish (cost dashboard, alerting) | Optional |
+
+Plus: **Braintrust telemetry** end-to-end (spec at `docs/specs/braintrust-telemetry.md`). Open bugs: none (BUG-01 closed, see `docs/bugs.md`).
+
+---
 
 ## License
 
-Prototype only. Not affiliated with the U.S. Department of the Treasury or
-the Alcohol and Tobacco Tax and Trade Bureau.
+Prototype only. Not affiliated with the U.S. Department of the Treasury or the Alcohol and Tobacco Tax and Trade Bureau. No labels are submitted to COLAs Online from this tool.
+
+Patterns adopted with attribution from the open-source [`fsyeddev/ttb-label`](https://github.com/fsyeddev/ttb-label) prototype (spec template, retry policy, bug-tracker structure) — itemized in `docs/roadmap.md` under "Patterns adopted".

@@ -19,7 +19,7 @@
     "eval:full": "tsx scripts/run-fixture-evals.ts"
   },
   "dependencies": {
-    "@google/genai": "^0.7.0",
+    "@google/genai": "^1.52.0",
     "@prisma/client": "^5.22.0",
     "braintrust": "^3.10.0",
     "next": "16.2.6",

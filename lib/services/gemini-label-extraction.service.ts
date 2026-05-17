@@ -141,16 +141,13 @@ export class GeminiLabelExtractionService implements LabelExtractionService {
               systemInstruction: prompt.systemInstruction,
               responseMimeType: "application/json",
               temperature: 0.1,
-              // Disable Gemini 2.5 "thinking" tokens for this structured OCR
-              // task. Thinking adds ~5-7s of latency without measurable
-              // accuracy gain on schema-constrained extraction (observed in
-              // production traces: thoughtsTokens ~1275 on an 11s call).
-              // Cast: @google/genai 0.7 omits thinkingBudget from its
-              // ThinkingConfig type, but the REST API accepts it. Drop the
-              // cast once we upgrade past 0.10.
-              thinkingConfig: { thinkingBudget: 0 } as unknown as {
-                includeThoughts?: boolean;
-              },
+              // Disable Gemini 2.5 thinking for this structured OCR task.
+              // Thinking adds latency without measurable accuracy gain on a
+              // schema-constrained extraction (observed: thoughtsTokens up
+              // to 62k pushing geminiCallMs to 237s on a 2-image call).
+              // Requires @google/genai >= 1.x — the 0.7 SDK silently stripped
+              // every field except includeThoughts from thinkingConfig.
+              thinkingConfig: { thinkingBudget: 0 },
             },
           }),
         );

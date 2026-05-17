@@ -8,6 +8,12 @@ import type {
   LabelExtractionService,
 } from "./label-extraction.service";
 import { buildOcrPrompt } from "./ocr-prompt-builder";
+import {
+  computeExtractionScores,
+  hashPrompt,
+  summarizeRawText,
+  tracedExtract,
+} from "@/lib/observability/braintrust";
 
 // Retry policy adopted from
 // https://github.com/fsyeddev/ttb-label/blob/main/lib/gemini.ts with attribution.
@@ -80,97 +86,128 @@ export class GeminiLabelExtractionService implements LabelExtractionService {
   async extract(input: LabelExtractionInput): Promise<ExtractedLabel> {
     const { application, images } = input;
     const prompt = buildOcrPrompt(application);
+    const productType = application.applicationTypeStep.productType;
+    const promptHash = hashPrompt(prompt.userInstruction);
 
-    const imageParts = images
-      .filter((img) => img.base64 && img.mimeType)
-      .map((img) => ({
-        inlineData: {
-          mimeType: img.mimeType,
-          data: img.base64 as string,
+    return tracedExtract(async (span) => {
+      span.log({
+        input: {
+          productType,
+          imageCount: images.length,
+          promptHash,
         },
-      }));
-
-    if (imageParts.length === 0) {
-      throw new GeminiExtractionError(
-        "No image payloads with base64 data were provided to the Gemini extractor.",
-      );
-    }
-
-    const userParts = [
-      ...imageParts,
-      { text: prompt.userInstruction },
-    ];
-
-    let response;
-    try {
-      response = await callWithRetryOn503(() =>
-        this.client.models.generateContent({
+        metadata: {
           model: this.model,
-          contents: [
-            {
-              role: "user",
-              parts: userParts,
-            },
-          ],
-          config: {
-            systemInstruction: prompt.systemInstruction,
-            responseMimeType: "application/json",
-            temperature: 0.1,
+          mockExtraction: false,
+          promptHash,
+        },
+      });
+
+      const imageParts = images
+        .filter((img) => img.base64 && img.mimeType)
+        .map((img) => ({
+          inlineData: {
+            mimeType: img.mimeType,
+            data: img.base64 as string,
           },
-        }),
-      );
-    } catch (err) {
-      throw new GeminiExtractionError(
-        "Gemini call failed while extracting the label.",
-        err,
-      );
-    }
+        }));
 
-    const text = response.text ?? "";
-    if (!text.trim()) {
-      throw new GeminiExtractionError(
-        "Gemini returned an empty response body.",
-      );
-    }
+      if (imageParts.length === 0) {
+        throw new GeminiExtractionError(
+          "No image payloads with base64 data were provided to the Gemini extractor.",
+        );
+      }
 
-    const cleaned = stripJsonFences(text);
+      const userParts = [
+        ...imageParts,
+        { text: prompt.userInstruction },
+      ];
 
-    let parsedJson: unknown;
-    try {
-      parsedJson = JSON.parse(cleaned);
-    } catch (err) {
-      const finishReason =
-        (response as { candidates?: Array<{ finishReason?: string }> })
-          .candidates?.[0]?.finishReason ?? "unknown";
-      throw new GeminiExtractionError(
-        `Gemini response was not valid JSON (finishReason=${finishReason}, len=${text.length}). First 500 chars: ${cleaned.slice(0, 500)}`,
-        err,
-      );
-    }
+      let response;
+      const tCall = Date.now();
+      try {
+        response = await callWithRetryOn503(() =>
+          this.client.models.generateContent({
+            model: this.model,
+            contents: [
+              {
+                role: "user",
+                parts: userParts,
+              },
+            ],
+            config: {
+              systemInstruction: prompt.systemInstruction,
+              responseMimeType: "application/json",
+              temperature: 0.1,
+            },
+          }),
+        );
+      } catch (err) {
+        throw new GeminiExtractionError(
+          "Gemini call failed while extracting the label.",
+          err,
+        );
+      }
+      const geminiCallMs = Date.now() - tCall;
 
-    if (process.env.EXTRACTION_DEBUG_LOG === "true") {
-      console.info(
-        "[gemini] raw response (truncated 2KB)",
-        text.slice(0, 2000),
-      );
-    }
+      const text = response.text ?? "";
+      if (!text.trim()) {
+        throw new GeminiExtractionError(
+          "Gemini returned an empty response body.",
+        );
+      }
 
-    const result = extractedLabelSchema.safeParse(parsedJson);
-    if (!result.success) {
-      throw new GeminiExtractionError(
-        `Gemini response did not match ExtractedLabel schema: ${result.error.message}`,
-        result.error,
-      );
-    }
+      const cleaned = stripJsonFences(text);
 
-    // Ensure imagesAnalyzed reflects the IDs we sent, regardless of what the
-    // model returns, so the rest of the pipeline can correlate by ID.
-    return {
-      ...result.data,
-      imagesAnalyzed:
-        result.data.imagesAnalyzed?.length > 0
-          ? result.data.imagesAnalyzed
-          : images.map((i) => i.id),
-    };
+      let parsedJson: unknown;
+      try {
+        parsedJson = JSON.parse(cleaned);
+      } catch (err) {
+        const finishReason =
+          (response as { candidates?: Array<{ finishReason?: string }> })
+            .candidates?.[0]?.finishReason ?? "unknown";
+        throw new GeminiExtractionError(
+          `Gemini response was not valid JSON (finishReason=${finishReason}, len=${text.length}). First 500 chars: ${cleaned.slice(0, 500)}`,
+          err,
+        );
+      }
+
+      if (process.env.EXTRACTION_DEBUG_LOG === "true") {
+        console.info(
+          "[gemini] raw response (truncated 2KB)",
+          text.slice(0, 2000),
+        );
+      }
+
+      const result = extractedLabelSchema.safeParse(parsedJson);
+      if (!result.success) {
+        throw new GeminiExtractionError(
+          `Gemini response did not match ExtractedLabel schema: ${result.error.message}`,
+          result.error,
+        );
+      }
+
+      const extractedLabel: ExtractedLabel = {
+        ...result.data,
+        imagesAnalyzed:
+          result.data.imagesAnalyzed?.length > 0
+            ? result.data.imagesAnalyzed
+            : images.map((i) => i.id),
+      };
+
+      span.log({
+        output: {
+          rawTextTruncated: summarizeRawText(extractedLabel.rawText),
+          inferredProductType: extractedLabel.inferredProductType,
+          inferredProductTypeConfidence:
+            extractedLabel.inferredProductTypeConfidence,
+          normalizedFieldKeys: Object.keys(extractedLabel.normalizedFields),
+        },
+        metrics: { geminiCallMs },
+        scores: computeExtractionScores(extractedLabel, productType),
+      });
+
+      return extractedLabel;
+    });
   }
 }

@@ -52,6 +52,12 @@ export interface CreateVerificationRecordInput {
   extractedLabel: ExtractedLabel;
   report: VerificationReport;
   imageMetadata?: LabelImagePayload[];
+  /**
+   * Optional FK to a BatchSubmission. Populated by the Phase 3+ batch path;
+   * null for direct single-label submissions. Backward-compatible: omitting
+   * preserves all prior behavior.
+   */
+  batchSubmissionId?: string;
 }
 
 export async function createVerificationRecord(
@@ -71,18 +77,32 @@ export async function createVerificationRecord(
     imageJson: input.imageMetadata
       ? (input.imageMetadata.map(stripBase64) as unknown as Prisma.InputJsonValue)
       : undefined,
+    ...(input.batchSubmissionId
+      ? { batchSubmission: { connect: { id: input.batchSubmissionId } } }
+      : {}),
   };
 
   const created = await prisma.verificationRecord.create({ data });
   return summaryFromRow(created);
 }
 
-export async function listVerificationRecords(): Promise<
-  VerificationRecordSummary[]
-> {
+export interface ListVerificationRecordsInput {
+  /** Filter to records linked to BatchSubmissions in this batch. */
+  batchId?: string;
+  /** Max rows returned. Default 100. */
+  take?: number;
+}
+
+export async function listVerificationRecords(
+  input: ListVerificationRecordsInput = {},
+): Promise<VerificationRecordSummary[]> {
+  const where = input.batchId
+    ? { batchSubmission: { batchId: input.batchId } }
+    : undefined;
   const rows = await prisma.verificationRecord.findMany({
+    where,
     orderBy: { createdAt: "desc" },
-    take: 100,
+    take: input.take ?? 100,
   });
   return rows.map(summaryFromRow);
 }

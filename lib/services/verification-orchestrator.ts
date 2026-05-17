@@ -33,6 +33,13 @@ export interface RunVerificationInput {
    * unless `IMAGE_PREPROCESS_ENABLED=false` is set in the env.
    */
   skipImagePreprocess?: boolean;
+  /**
+   * Optional FK to a BatchSubmission. When set, the persisted VerificationRecord
+   * is linked back to that submission, so a batch can be reassembled by
+   * `listVerificationRecords({ batchId })` later. Backward-compatible: omitting
+   * preserves all single-label call sites.
+   */
+  batchSubmissionId?: string;
 }
 
 export interface RunVerificationResult {
@@ -152,6 +159,7 @@ export async function runVerification(
       extractedLabel,
       report,
       imageMetadata: input.images,
+      batchSubmissionId: input.batchSubmissionId,
     });
   }
 

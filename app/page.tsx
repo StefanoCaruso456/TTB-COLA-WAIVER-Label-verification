@@ -6,11 +6,16 @@ import { listVerificationRecords } from "@/lib/services/verification-record.serv
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ batchId?: string }>;
+}) {
+  const { batchId } = await searchParams;
   let dbError: string | null = null;
   let records: Awaited<ReturnType<typeof listVerificationRecords>> = [];
   try {
-    records = await listVerificationRecords();
+    records = await listVerificationRecords({ batchId });
   } catch (err) {
     dbError =
       err instanceof Error
@@ -35,6 +40,24 @@ export default async function HomePage() {
           + New verification
         </Link>
       </div>
+
+      {batchId && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-sky-200 bg-sky-50 px-4 py-2 text-sm text-sky-900">
+          <span>
+            Showing submissions from batch{" "}
+            <span className="font-mono">{batchId}</span>.
+          </span>
+          <Link href="/" className="text-xs text-sky-700 hover:underline">
+            Clear filter
+          </Link>
+          <Link
+            href={`/batches/${batchId}`}
+            className="text-xs text-sky-700 hover:underline ml-auto"
+          >
+            View batch detail →
+          </Link>
+        </div>
+      )}
 
       {dbError ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">

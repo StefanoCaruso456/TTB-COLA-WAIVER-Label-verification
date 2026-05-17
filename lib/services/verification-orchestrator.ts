@@ -16,6 +16,7 @@ import { verifyApplication } from "./verification.service";
 import { createVerificationRecord } from "./verification-record.service";
 import { preprocessImage } from "./image-preprocess";
 import {
+  computeBrandMatchScore,
   computeLatencyScore,
   computeVerificationScores,
   tracedVerify,
@@ -220,6 +221,10 @@ export async function runVerification(
         ...computeVerificationScores(report),
         "verification.latencyUnder5s": computeLatencyScore(
           Date.now() - verifyStartMs,
+        ),
+        "verification.brandNameMatched": computeBrandMatchScore(
+          application.colaInformationStep.brandName,
+          extractedLabel.normalizedFields?.brandName?.value,
         ),
       },
     });

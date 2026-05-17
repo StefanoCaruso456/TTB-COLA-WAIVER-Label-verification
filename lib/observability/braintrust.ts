@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { initLogger, traced } from "braintrust";
 
 import { getOcrTargetsForProductType } from "@/lib/rules/ocr-targets";
+import { compareBrand } from "@/lib/verification/compare-brand";
 import type { ExtractedLabel } from "@/types/extracted-label";
 import type { ProductType } from "@/types/cola";
 import type { VerificationReport } from "@/types/verification";
@@ -18,6 +19,44 @@ export function computeLatencyScore(
   sloMs: number = LATENCY_SLO_MS,
 ): number {
   return durationMs <= sloMs ? 1 : 0;
+}
+
+// Gemini per-token prices in USD per 1M tokens. Defaults reflect
+// gemini-2.5-flash public pricing; override via env if rates change so we
+// don't need a code redeploy to track cost accurately.
+// Reference: https://ai.google.dev/pricing
+export const GEMINI_INPUT_USD_PER_M = Number(
+  process.env.GEMINI_INPUT_USD_PER_M ?? "0.30",
+);
+export const GEMINI_OUTPUT_USD_PER_M = Number(
+  process.env.GEMINI_OUTPUT_USD_PER_M ?? "2.50",
+);
+
+export interface GeminiUsage {
+  promptTokenCount?: number;
+  candidatesTokenCount?: number;
+  thoughtsTokenCount?: number;
+}
+
+// Thinking tokens are billed at the output rate on Gemini 2.5 models.
+export function computeGeminiCostUsd(usage: GeminiUsage | undefined): number {
+  if (!usage) return 0;
+  const input = (usage.promptTokenCount ?? 0) / 1_000_000;
+  const output =
+    ((usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0)) /
+    1_000_000;
+  return round4(
+    input * GEMINI_INPUT_USD_PER_M + output * GEMINI_OUTPUT_USD_PER_M,
+  );
+}
+
+export function computeBrandMatchScore(
+  expected: string | null | undefined,
+  extracted: string | null | undefined,
+): number {
+  const result = compareBrand(expected, extracted);
+  if (result.status === "not_applicable") return 1;
+  return round2(result.similarity);
 }
 
 let initialized = false;
@@ -150,4 +189,8 @@ export function targetCountForProductType(productType: ProductType): number {
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+function round4(n: number): number {
+  return Math.round(n * 10000) / 10000;
 }

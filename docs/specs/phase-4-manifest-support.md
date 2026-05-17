@@ -1,8 +1,9 @@
 # Feature Spec — Phase 4: Manifest support
 
-**Status:** Draft
+**Status:** Approved
 **Owner:** Stefano
 **Last updated:** 2026-05-17
+**Approver:** Stefano (open questions resolved by senior-engineer review; see "Decisions locked" section).
 
 > Spec format adopted from [fsyeddev/ttb-label](https://github.com/fsyeddev/ttb-label/blob/main/docs/specs/_template.md) with attribution. The structure (Status / Goal / Scope / Approach / Acceptance / Evals / Open questions / Notes) is reused as-is; content is original.
 
@@ -147,13 +148,16 @@ Required after normalization: `file_name`, `product_type`, `brand_name`. All oth
 - `tests/manifest-validator.test.ts` — orphan row; orphan file; duplicate `file_name` in manifest; duplicate file names in upload; case mismatch (depends on Open Question resolution).
 - `tests-e2e/manifest-batch.spec.ts` — happy path: POST manifest + 5 wine fixtures, all reach `verified` state, response matches `CreateBatchResponse` shape, Braintrust emits 5 `verify` traces.
 
-## Open questions
+## Decisions locked
 
-- **Case-sensitivity for `file_name` matching** — Lean: case-insensitive on Linux deployments (Railway), case-sensitive on disk-storage round-trips. Rationale: reviewer typos (`wine-01.JPG` vs `wine-01.jpg`) shouldn't fail a batch. Match by lowercased `file_name` in the validator; store the original casing as the canonical name.
-- **CSV parser dependency** — Lean: `papaparse`. Rationale: handles quoted commas, BOM, line endings; widely used; ~12 KB minified. Reject the alternative of hand-rolling because RFC 4180 is more annoying than it looks.
-- **Required columns on CSV** — Lean: `file_name`, `product_type`, `brand_name` (per roadmap). Rationale: matches the minimum a downstream comparator needs to do anything useful.
-- **Orphan-file policy** — Lean: hard 400. Rationale: silent ignore would let a typo in the manifest drop submissions without anyone noticing. Phase 6 UI can offer an "ignore extras" toggle later.
-- **Manifest row count cap** — Lean: reuse `MAX_BATCH_FILES = 5` from Phase 3 for this synchronous phase. Bumps to ~200 in Phase 5 when the worker exists.
+1. **`file_name` matching is case-insensitive.** Compare lowercased on both sides; store the original casing as canonical. Compliance reviewers mistype extensions (`.JPG` vs `.jpg`); a manifest should not fail on that.
+2. **CSV parser is `papaparse`.** Handles RFC 4180 edge cases (quoted commas, BOM, mixed line endings) we'd otherwise reinvent. ~12 KB minified.
+3. **Required columns post-normalization:** `file_name`, `product_type`, `brand_name`. Anything less and no comparator can run; anything more makes the format brittle.
+4. **Orphan files → hard 400.** This is a compliance tool. Silently dropping uploaded labels because of a manifest typo is an audit risk. Default fail-closed; a Phase 6 UI toggle can opt in to "ignore extras".
+5. **Row cap stays at `MAX_BATCH_FILES = 5`.** Bumping requires Phase 5's worker. Bumping here would mean a 60s synchronous HTTP request that can die mid-flight.
+6. **`manifest` and `applications` are mutually exclusive in the same request.** Sending both → 400 `manifest_and_inline_conflict`. Explicit beats silently preferring one.
+7. **`validationReport` includes `parseErrors` (with `line` + `reason`) and `rowErrors` (per-row Zod failures) in addition to `orphanRows` and `orphanFiles`.** A 400 the caller can't act on is worthless.
+8. **Backwards compatibility is enforced by the E2E suite, not unit tests alone.** The integration test must `POST` once via the inline-applications branch and once via the manifest branch in the same run.
 
 ## Risks
 

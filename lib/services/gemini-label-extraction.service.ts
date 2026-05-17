@@ -10,6 +10,7 @@ import type {
 import { buildOcrPrompt } from "./ocr-prompt-builder";
 import {
   computeExtractionScores,
+  computeLatencyScore,
   hashPrompt,
   summarizeRawText,
   tracedExtract,
@@ -195,6 +196,15 @@ export class GeminiLabelExtractionService implements LabelExtractionService {
             : images.map((i) => i.id),
       };
 
+      const usage = (response as {
+        usageMetadata?: {
+          promptTokenCount?: number;
+          candidatesTokenCount?: number;
+          totalTokenCount?: number;
+          thoughtsTokenCount?: number;
+        };
+      }).usageMetadata;
+
       span.log({
         output: {
           rawTextTruncated: summarizeRawText(extractedLabel.rawText),
@@ -203,8 +213,17 @@ export class GeminiLabelExtractionService implements LabelExtractionService {
             extractedLabel.inferredProductTypeConfidence,
           normalizedFieldKeys: Object.keys(extractedLabel.normalizedFields),
         },
-        metrics: { geminiCallMs },
-        scores: computeExtractionScores(extractedLabel, productType),
+        metrics: {
+          geminiCallMs,
+          promptTokens: usage?.promptTokenCount,
+          completionTokens: usage?.candidatesTokenCount,
+          totalTokens: usage?.totalTokenCount,
+          thoughtsTokens: usage?.thoughtsTokenCount,
+        },
+        scores: {
+          ...computeExtractionScores(extractedLabel, productType),
+          "extraction.latencyUnder5s": computeLatencyScore(geminiCallMs),
+        },
       });
 
       return extractedLabel;

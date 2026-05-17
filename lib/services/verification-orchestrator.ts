@@ -16,6 +16,7 @@ import { verifyApplication } from "./verification.service";
 import { createVerificationRecord } from "./verification-record.service";
 import { preprocessImage } from "./image-preprocess";
 import {
+  computeLatencyScore,
   computeVerificationScores,
   tracedVerify,
 } from "@/lib/observability/braintrust";
@@ -89,6 +90,7 @@ export async function runVerification(
   }
 
   return tracedVerify(async (span) => {
+    const verifyStartMs = Date.now();
     span.log({
       input: {
         productType: application.applicationTypeStep.productType,
@@ -212,8 +214,14 @@ export async function runVerification(
       },
       metrics: {
         imagePreprocessMs: imagePreprocessSummary?.durationMs ?? 0,
+        verifyTotalMs: Date.now() - verifyStartMs,
       },
-      scores: computeVerificationScores(report),
+      scores: {
+        ...computeVerificationScores(report),
+        "verification.latencyUnder5s": computeLatencyScore(
+          Date.now() - verifyStartMs,
+        ),
+      },
     });
 
     return {

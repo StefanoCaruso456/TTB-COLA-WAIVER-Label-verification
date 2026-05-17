@@ -8,6 +8,18 @@ import type { VerificationReport } from "@/types/verification";
 
 const DEFAULT_PROJECT_NAME = "ttb-cola-verifier";
 
+// Per-call latency SLO. From docs/roadmap.md (Phase 3, p.478) and
+// phase-3-synchronous-batch.md (5 files × ~5s each = ~25s). Tracked as a
+// binary score so the Braintrust Monitor view shows % of calls meeting SLO.
+export const LATENCY_SLO_MS = 5000;
+
+export function computeLatencyScore(
+  durationMs: number,
+  sloMs: number = LATENCY_SLO_MS,
+): number {
+  return durationMs <= sloMs ? 1 : 0;
+}
+
 let initialized = false;
 
 export function initBraintrust(): void {

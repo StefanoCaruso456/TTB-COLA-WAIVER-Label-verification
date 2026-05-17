@@ -499,14 +499,13 @@ export interface FileStorage {
 ### Risks
 
 - 5-file synchronous batch will hit ~25–30s on real Gemini. Acceptable for Phase 3; the cap moves in Phase 5.
-- Multipart upload size limit: Next.js default 4 MB per request body. Need explicit override (`next.config.ts` `experimental.serverActions.bodySizeLimit`) or use multipart streaming. **Decision required: configure body size limit to 50 MB for batch endpoint.**
+- Next.js default request body limit is 4 MB. Phase 3 raises it to **50 MB** for `POST /api/batches` only (see AD-012 in the decisions log). Larger batches use chunked uploads in Phase 5 (AD-013); no single request ever approaches 1 GB.
 
 ### Manual prerequisites
 
 | What | Why |
 |---|---|
 | **Confirm Railway Volume is mounted and writable** | Phase 3 is the first phase that actually writes to the volume. |
-| Approve body size limit increase to ~50 MB | Required for ≤5 × ~5 MB files in one request. |
 
 ### Estimated effort
 
@@ -877,12 +876,13 @@ Each decision either: **Decided** (locked, with rationale) or **Open** (needs re
 | AD-009 | Gemini retry on 503 only, [5000, 10000] ms delays, max 2 retries | Matches cola-verify's tested pattern. | 2026-05-16 |
 | AD-010 | Real `GEMINI_API_KEY` available in Railway env | Confirmed. | 2026-05-16 |
 | AD-011 | PDF support deferred to v2 | Images only for v1. | 2026-05-16 |
+| AD-012 | Phase 3 batch endpoint body size limit: **50 MB**. Handles 5 files × 10 MB. Configured per-route via Next.js route segment config. | Matches Phase 3's hardcoded 5-file cap. Keeps a single request well below any HTTP server limit. Larger batches use chunked uploads (AD-013), never a single fat POST. | 2026-05-16 |
+| AD-013 | Phase 5 upload model for 100–300 file batches: **chunked POSTs**. `POST /api/batches` creates an empty batch and returns `batchId`. Client then `POST /api/batches/:id/submissions` in chunks of ≤5 files each (~25 MB per chunk). Worker drains the queue in the background. | A 200-file batch becomes ~40 chunked POSTs, each well under any HTTP limit. No streaming uploads, no signed URLs, no TUS protocol — keeps the implementation simple and the failure modes obvious. The browser shows a single "uploading N of M" progress bar that wraps the chunked calls. Considered alternatives: direct-to-S3 with signed URLs (more moving parts, no S3 in the stack), resumable multipart (overkill at this scale). | 2026-05-16 |
 
 ### Open — needed before stated phase
 
 | ID | Decision | Needed before | Notes |
 |---|---|---|---|
-| AD-O1 | Body size limit for batch upload endpoint | Phase 3 | Recommend 50 MB. |
 | AD-O2 | Policy on orphan files / orphan rows in manifest | Phase 4 | Default: reject. UI in Phase 6 may allow override. |
 | AD-O3 | Worker service definition in Railway | Phase 5 | Create separate service via dashboard. |
 | AD-O4 | Gemini tier and rate limits on your account | Phase 5 / 7 | Drives concurrency cap. |
@@ -913,7 +913,8 @@ What you (Stefano) need to do, by phase. Most items take 5–15 minutes.
 
 ### Before Phase 3 starts
 
-- [ ] Approve body size limit increase to ~50 MB
+- [x] Body size limit decided: **50 MB** for the batch endpoint (AD-012)
+- [x] Upload model for 100–300 file batches decided: **chunked POSTs** (AD-013, lands in Phase 5)
 - [ ] Confirm Railway Volume is writable (Phase 2 tests will verify)
 
 ### Before Phase 4 starts

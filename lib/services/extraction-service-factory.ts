@@ -12,6 +12,9 @@ export function getExtractionService(
   }
   return new GeminiLabelExtractionService({
     apiKey: env.GEMINI_API_KEY as string,
-    model: env.GEMINI_MODEL ?? "gemini-2.5-flash",
+    // Default lite variant: ~2x faster decode than gemini-2.5-flash with
+    // negligible accuracy loss on structured OCR. Override with the env var
+    // back to gemini-2.5-flash if a corpus shows accuracy regressions.
+    model: env.GEMINI_MODEL ?? "gemini-2.5-flash-lite",
   });
 }

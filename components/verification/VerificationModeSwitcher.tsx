@@ -28,7 +28,7 @@ export function VerificationModeSwitcher({ samples }: Props) {
           active={mode === "batch"}
           onClick={() => setMode("batch")}
           label="Batch"
-          sub="Up to 5 labels, one per file"
+          sub="Up to 200 labels, one per file"
         />
       </div>
 

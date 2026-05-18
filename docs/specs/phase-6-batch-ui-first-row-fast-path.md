@@ -1,6 +1,6 @@
 # Feature Spec — Phase 6: Batch UI with first-row fast path
 
-**Status:** Draft
+**Status:** Approved (2026-05-18)
 **Owner:** Stefano
 **Last updated:** 2026-05-18
 

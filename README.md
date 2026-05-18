@@ -4,7 +4,11 @@
 
 Built as a take-home for the AI-Powered Alcohol Label Verification project. Single-label and batch (up to 200 labels per submission) workflows. End-to-end observability via Braintrust. ~3–4 s per Gemini extraction in production.
 
-**Live demo:** _set me on Railway — the deploy URL goes here_
+## 🔗 Live demo
+
+**[https://ttb-cola-waiver-label-verification-production.up.railway.app/](https://ttb-cola-waiver-label-verification-production.up.railway.app/)**
+
+Open in a browser — no login. Try the **Single label** flow first (drop in a wine/spirits/malt label and click Run verification), then flip to **Batch** mode to drop a manifest + multiple images. The first row of any batch renders inline within ~6 s while the rest fill in live.
 
 ---
 

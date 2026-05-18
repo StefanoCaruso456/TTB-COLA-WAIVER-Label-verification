@@ -91,6 +91,17 @@ export class MockLabelExtractionService implements LabelExtractionService {
           imageId: firstImageId,
           confidence: 0.99,
         }),
+        // Synthesize Tier-1+2 typography so the deterministic test path
+        // covers compare-warning-typography.ts. Mutated below by
+        // applyMockScenario for the bold-violation / sizing-violation
+        // scenarios used in evals.
+        governmentWarningTypography: {
+          prefixIsBold: true,
+          prefixIsAllCaps: true,
+          prefixBbox: { x: 0.1, y: 0.85, width: 0.25, height: 0.03 },
+          warningBbox: { x: 0.1, y: 0.85, width: 0.8, height: 0.05 },
+          brandReferenceBbox: { x: 0.1, y: 0.2, width: 0.6, height: 0.08 },
+        },
       },
     };
 
@@ -266,6 +277,28 @@ function applyMockScenario(
 
     case "imported-missing-origin":
       delete fields.countryOfOrigin;
+      return { ...base, normalizedFields: fields };
+
+    case "warning-not-bold":
+      // Requirement #15 Tier 1: synthesize a non-bold prefix so
+      // compare-warning-typography's bold check is exercised.
+      if (fields.governmentWarningTypography) {
+        fields.governmentWarningTypography = {
+          ...fields.governmentWarningTypography,
+          prefixIsBold: false,
+        };
+      }
+      return { ...base, normalizedFields: fields };
+
+    case "warning-too-small":
+      // Requirement #15 Tier 2: warning bbox shrunk to ~10% of brand,
+      // well under the 50% default threshold.
+      if (fields.governmentWarningTypography) {
+        fields.governmentWarningTypography = {
+          ...fields.governmentWarningTypography,
+          warningBbox: { x: 0.1, y: 0.95, width: 0.5, height: 0.01 },
+        };
+      }
       return { ...base, normalizedFields: fields };
 
     default:

@@ -86,6 +86,15 @@ export async function createBatchSubmissions(input: {
 
 export interface BatchSubmissionWithRecord extends BatchSubmission {
   verificationRecordId: string | null;
+  /** Phase 6: lightweight verdict surface for inline rendering in the
+   *  batch detail table. Null when no record exists yet (queued /
+   *  processing rows). Kept as a narrow projection rather than the full
+   *  reportJson to keep response payloads small at 200-row scale. */
+  reportSummary: {
+    overallStatus: string;
+    overallConfidence: number | null;
+    mismatchCount: number;
+  } | null;
 }
 
 export async function getBatchById(id: string): Promise<{
@@ -97,13 +106,44 @@ export async function getBatchById(id: string): Promise<{
   const rows = await prisma.batchSubmission.findMany({
     where: { batchId: id },
     orderBy: { createdAt: "asc" },
-    include: { verificationRecord: { select: { id: true } } },
+    include: {
+      verificationRecord: { select: { id: true, reportJson: true } },
+    },
   });
   const submissions: BatchSubmissionWithRecord[] = rows.map((r) => {
     const { verificationRecord, ...rest } = r;
-    return { ...rest, verificationRecordId: verificationRecord?.id ?? null };
+    const reportSummary = verificationRecord?.reportJson
+      ? summarizeReport(verificationRecord.reportJson)
+      : null;
+    return {
+      ...rest,
+      verificationRecordId: verificationRecord?.id ?? null,
+      reportSummary,
+    };
   });
   return { batch, submissions };
+}
+
+function summarizeReport(reportJson: unknown): {
+  overallStatus: string;
+  overallConfidence: number | null;
+  mismatchCount: number;
+} | null {
+  if (!reportJson || typeof reportJson !== "object") return null;
+  const r = reportJson as {
+    overallStatus?: unknown;
+    overallConfidence?: unknown;
+    auditSummary?: { errors?: unknown; warnings?: unknown };
+  };
+  const overallStatus =
+    typeof r.overallStatus === "string" ? r.overallStatus : "unknown";
+  const overallConfidence =
+    typeof r.overallConfidence === "number" ? r.overallConfidence : null;
+  const errors =
+    typeof r.auditSummary?.errors === "number" ? r.auditSummary.errors : 0;
+  const warnings =
+    typeof r.auditSummary?.warnings === "number" ? r.auditSummary.warnings : 0;
+  return { overallStatus, overallConfidence, mismatchCount: errors + warnings };
 }
 
 export async function transitionSubmissionStatus(

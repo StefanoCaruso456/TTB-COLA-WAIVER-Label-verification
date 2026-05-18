@@ -53,6 +53,7 @@ export async function GET(
       verificationRecordId: s.verificationRecordId,
       createdAt: s.createdAt.toISOString(),
       completedAt: s.completedAt?.toISOString() ?? null,
+      reportSummary: s.reportSummary,
     })),
   };
   return NextResponse.json(response);

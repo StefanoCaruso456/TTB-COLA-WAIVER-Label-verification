@@ -104,6 +104,17 @@ const submissionResponseSchema = z.object({
   verificationRecordId: z.string().nullable().optional(),
   createdAt: z.string(),
   completedAt: z.string().nullable().optional(),
+  // Phase 6: present once a row's verification record exists. Null for
+  // queued/processing rows so the table can render an em dash without a
+  // shape-narrowing branch on the consumer side.
+  reportSummary: z
+    .object({
+      overallStatus: z.string(),
+      overallConfidence: z.number().nullable(),
+      mismatchCount: z.number().int().nonnegative(),
+    })
+    .nullable()
+    .optional(),
 });
 
 export const createBatchResponseSchema = z.object({

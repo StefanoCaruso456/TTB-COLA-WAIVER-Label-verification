@@ -728,16 +728,18 @@ The worker process executes this in a Prisma transaction. Multiple worker proces
 
 > **Goal: production-grade UI for batch upload, live progress, results review, and drill-into-failed.**
 
+Implementation spec: [`docs/specs/phase-6-batch-ui-first-row-fast-path.md`](specs/phase-6-batch-ui-first-row-fast-path.md). Phase 6 also added the **first-row fast path** — POST `/api/batches` now blocks just long enough to verify row 1, returns it inline, and the user watches a live progress bar while the worker drains rows 2…N.
+
 ### Features delivered
 
-| # | Feature | Visible to |
-|---|---|---|
-| 6.1 | `/batches/new` upload page with dropzone + manifest input | Reviewer |
-| 6.2 | Pre-submit validation panel | Reviewer |
-| 6.3 | `/batches/:id` live progress page | Reviewer |
-| 6.4 | Per-submission drill-down | Reviewer |
-| 6.5 | Cancel-batch button | Reviewer |
-| 6.6 | Submissions tab `batchId` filter | Reviewer |
+| # | Feature | Visible to | Status |
+|---|---|---|---|
+| 6.1 | `/batches/new` upload page with dropzone + manifest input | Reviewer | Done |
+| 6.2 | Pre-submit validation panel | Reviewer | Done |
+| 6.3 | `/batches/:id` live progress page with first-row banner | Reviewer | Done |
+| 6.4 | Per-submission drill-down (slide-in panel) | Reviewer | Done |
+| 6.5 | Cancel-batch button | Reviewer | Deferred — follow-up PR |
+| 6.6 | Submissions tab `batchId` filter | Reviewer | Deferred — follow-up PR |
 
 ### User stories
 
@@ -970,7 +972,7 @@ What you (Stefano) need to do, by phase. Most items take 5–15 minutes.
 | 3 | Phase 3 spec | Stefano | _pending_ |
 | 4 | Phase 4 spec | Stefano | _pending_ |
 | 5 | Phase 5 spec | Stefano | _pending_ |
-| 6 | Phase 6 spec | Stefano | _pending_ |
+| 6 | Phase 6 spec | Stefano | Approved 2026-05-18 — see `docs/specs/phase-6-batch-ui-first-row-fast-path.md` |
 | 7 | Phase 7 spec | Stefano | _pending_ |
 
 ---

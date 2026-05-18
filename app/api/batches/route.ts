@@ -12,6 +12,7 @@ import {
   createBatchSubmissions,
 } from "@/lib/services/batch-service";
 import { startBatchInBackground } from "@/lib/services/batch-worker";
+import { runFirstSubmissionInline } from "@/lib/services/run-first-submission-inline";
 import { prisma } from "@/lib/prisma";
 import { getFileStorage } from "@/lib/services/file-storage-factory";
 import {
@@ -374,16 +375,55 @@ export async function POST(request: Request) {
     })),
   });
 
-  // 9. Phase 5: kick off async processing. Worker drains submissions
-  //    with bounded concurrency in the background; caller polls
-  //    /api/batches/:id for live progress.
-  void submissions; // present for clarity — the worker re-reads from DB
+  // 9. Phase 6 first-row fast path. Synchronously verify row 1 so the
+  //    response can carry its report inline. Submission status is moved
+  //    out of `queued` before the worker is kicked off, so the worker's
+  //    `status: "queued"` selector skips it naturally — no flag needed.
+  //    Failure here does NOT abort the batch: the failed row 1 is just
+  //    surfaced as ok:false in the response and rows 2…N still process.
+  const firstSubmission = submissions[0]
+    ? await runFirstSubmissionInline({
+        batchId: batch.id,
+        submission: {
+          id: submissions[0].id,
+          fileName: submissions[0].fileName,
+          fileMimeType: submissions[0].fileMimeType,
+          fileSize: submissions[0].fileSize,
+          fileStorageKey: submissions[0].fileStorageKey,
+          applicationJson: submissions[0].applicationJson,
+        },
+      })
+    : undefined;
+
+  // 10. Phase 5: kick off async processing for the remaining rows.
+  //     Worker drains anything still `queued` with bounded concurrency in
+  //     the background; caller polls /api/batches/:id for live progress.
   startBatchInBackground(batch.id);
 
   const response: CreateBatchAcceptedResponse = {
     batchId: batch.id,
     status: batch.status as CreateBatchAcceptedResponse["status"],
     totalCount: batch.totalCount,
+    firstSubmission: firstSubmission
+      ? firstSubmission.ok
+        ? {
+            ok: true,
+            submissionId: firstSubmission.submissionId,
+            fileName: firstSubmission.fileName,
+            verificationRecordId: firstSubmission.verificationRecordId,
+            report: firstSubmission.report,
+            extractedLabel: firstSubmission.extractedLabel,
+          }
+        : {
+            ok: false,
+            submissionId: firstSubmission.submissionId,
+            fileName: firstSubmission.fileName,
+            errorCode: firstSubmission.errorCode,
+            errorMessage: firstSubmission.errorMessage,
+          }
+      : undefined,
   };
-  return NextResponse.json(response, { status: 202 });
+  // 200 now (not 202) — the response body carries a real verification
+  // result, not just an "accepted for processing" acknowledgement.
+  return NextResponse.json(response, { status: 200 });
 }

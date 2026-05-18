@@ -17,32 +17,54 @@ import {
   tracedExtract,
 } from "@/lib/observability/braintrust";
 
-// Retry policy adopted from
-// https://github.com/fsyeddev/ttb-label/blob/main/lib/gemini.ts with attribution.
-// Delays in milliseconds: first retry after 5s, second after 10s.
-export const GEMINI_503_RETRY_DELAYS_MS = [5000, 10000] as const;
+// Retry policy. Phase 6 reworked from a fixed 5s/10s schedule to exponential
+// backoff with jitter, and widened the trigger to also match 429 / quota
+// exhaustion responses (`RESOURCE_EXHAUSTED`). Schedule: 1s, 2s, 4s, 8s ⇒
+// ~15s worst-case before giving up. Jitter ±20% spreads concurrent retries
+// across workers so a single burst of 429s doesn't lock-step into another
+// burst on the way back up. See docs/specs/phase-6-batch-ui-first-row-fast-path.md.
+export const GEMINI_RETRY_BASE_DELAYS_MS = [1000, 2000, 4000, 8000] as const;
 
-export function is503Error(err: unknown): boolean {
+/** @deprecated kept for backward-compat imports; tests should consume
+ *  GEMINI_RETRY_BASE_DELAYS_MS directly. Removed in a future cleanup. */
+export const GEMINI_503_RETRY_DELAYS_MS = GEMINI_RETRY_BASE_DELAYS_MS;
+
+export function isRetryableError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
   const e = err as { status?: unknown; message?: unknown };
-  if (e.status === 503) return true;
-  if (typeof e.message === "string" && /\b503\b/.test(e.message)) return true;
+  if (e.status === 503 || e.status === 429) return true;
+  if (typeof e.message === "string") {
+    if (/\b503\b/.test(e.message)) return true;
+    if (/\b429\b/.test(e.message)) return true;
+    if (/RESOURCE_EXHAUSTED/.test(e.message)) return true;
+    if (/rate.?limit/i.test(e.message)) return true;
+  }
   return false;
+}
+
+/** @deprecated rename to `isRetryableError`. Re-exported for backward compat. */
+export const is503Error = isRetryableError;
+
+function jitter(baseMs: number): number {
+  // ±20% jitter, deterministic floor so a 1000ms base never becomes 0.
+  const spread = baseMs * 0.2;
+  const offset = (Math.random() * 2 - 1) * spread;
+  return Math.max(100, Math.floor(baseMs + offset));
 }
 
 export async function callWithRetryOn503<T>(
   fn: () => Promise<T>,
-  delaysMs: readonly number[] = GEMINI_503_RETRY_DELAYS_MS,
+  delaysMs: readonly number[] = GEMINI_RETRY_BASE_DELAYS_MS,
 ): Promise<T> {
   let attempt = 0;
   while (true) {
     try {
       return await fn();
     } catch (err) {
-      if (!is503Error(err) || attempt >= delaysMs.length) throw err;
-      const delayMs = delaysMs[attempt];
+      if (!isRetryableError(err) || attempt >= delaysMs.length) throw err;
+      const delayMs = jitter(delaysMs[attempt]);
       console.warn(
-        `[gemini] 503 — retrying in ${delayMs}ms (attempt ${attempt + 1}/${delaysMs.length})`,
+        `[gemini] retryable error — retrying in ${delayMs}ms (attempt ${attempt + 1}/${delaysMs.length})`,
       );
       await new Promise((resolve) => setTimeout(resolve, delayMs));
       attempt++;

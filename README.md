@@ -24,10 +24,9 @@ Open in a browser — no login. Try the **Single label** flow first (drop in a w
 - [Fixture evals](#fixture-evals)
 - [Deploying to Railway](#deploying-to-railway)
 - [Repo layout](#repo-layout)
-- [Approach & key decisions](#approach--key-decisions)
-- [Assumptions & limitations](#assumptions--limitations)
-- [Roadmap & status](#roadmap--status)
 - [License](#license)
+
+> Approach, key decisions, and assumptions live in [`docs/final-deliverable.md`](docs/final-deliverable.md) — the single hiring-manager-facing summary.
 
 ---
 
@@ -291,40 +290,6 @@ docs/
 tests/                                   Vitest
 tests-e2e/                               Playwright
 ```
-
----
-
-## Approach & key decisions
-
-The brief asked for a tool that's accurate, fast, easy to operate, and honest about its limits. The decisions below all serve those goals.
-
-1. **Deterministic comparators, not LLM judgments.** Every compliance call (match / mismatch / missing / not-applicable / needs-review) comes from a typed comparator in `lib/verification/`. The model only **extracts** what's visible on the label; the model never decides whether a label complies. This makes failures auditable and makes regressions findable in unit tests.
-
-2. **Structured-output Gemini with `responseMimeType: "application/json"` + a strict Zod schema.** Anything the model returns that doesn't match `extractedLabelSchema` becomes a typed error with the response prefix + `finishReason` in the error detail, so operators can see *why* extraction failed without redeploying.
-
-3. **Thinking disabled on Gemini 2.5-flash.** A live incident showed `thoughtsTokens: 62 911` on one call, pushing latency to ~4 min and cost to $0.16. The SDK at the time stripped `thinkingBudget` silently, so we upgraded `@google/genai` 0.7 → 1.52 to make the field actually reach the API. Same model, ~30× faster, ~35× cheaper. Documented in `docs/bugs.md` (closed) and `docs/specs/`.
-
-4. **Image preprocessing before Gemini.** 1280 px max edge + JPEG 85% via `sharp`. Roughly 85% payload reduction; ~3× latency improvement on large uploads. Toggleable via `IMAGE_PREPROCESS_ENABLED`.
-
-5. **In-process async worker for batch.** Fire-and-forget Promise after the POST response; bounded concurrency; startup recovery requeues rows stranded by a process restart. Simpler than a separate worker service; sufficient for the prototype. Documented limitation: a SIGKILL between `verify` success and the status transition can leave a `VerificationRecord` without its `BatchSubmission` link until the next sweep (Phase 7 idempotency work).
-
-6. **Spec-first workflow.** Every non-trivial change starts as a Draft spec in `docs/specs/` and moves to Approved before code is written. `docs/roadmap.md` defines the schedule; the specs define the contracts. Every closed bug links the PRs that fixed it + the trace that confirmed it live.
-
-7. **End-to-end observability for free.** Braintrust spans wrap the verification orchestrator and the Gemini call. Latency, cost, tokens, finishReason, brand-match similarity, and per-field coverage scores are all logged. The Monitor view answers "what % of calls are under 5 s?" without a separate metrics stack. No-op when `BRAINTRUST_API_KEY` is unset.
-
----
-
-## Assumptions & limitations
-
-The honest version: [`docs/assumptions-and-limitations.md`](docs/assumptions-and-limitations.md). Highlights:
-
-- **No COLAs integration.** Nothing is submitted to TTB from this tool.
-- **No auto-approval.** Compliance decisions are human-only.
-- **5 s SLO not always met.** Single calls land at ~7–8 s on labels with many fields, because vision-token processing + structured output is inherently slow. The Gemini call itself is ~3–4 s. Levers (image downscale, prompt trim) are documented; deferred.
-- **Typography is out of automated scope.** Bold detection, font-size, same-field-of-vision, exact layout positioning all surface as `human_review_required`.
-- **In-process worker.** A process restart strands in-flight `processing` rows; startup recovery requeues them on next boot (≤10 min delay). A separate Railway worker service is the right long-term move.
-- **Backpressure race.** Two concurrent POSTs can both pass the 500-row queue check. Acceptable for prototype; DB-side advisory lock is Phase 7.
-- **Domestic sake reuses shared schema.** Wine-like optional fields evaluated only when entered. A full sake-specific rule set is deferred.
 
 ---
 

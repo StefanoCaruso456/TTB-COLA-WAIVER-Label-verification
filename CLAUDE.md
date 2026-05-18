@@ -2,7 +2,7 @@
 
 TTB COLA Label Verifier. Next.js 16 + React 19 on Railway with Postgres/Prisma. Single-label verification works today; the batch feature is being built per `docs/roadmap.md`.
 
-**Live deploy:** Railway (URL in the dashboard).
+**Live deploy:** https://ttb-cola-waiver-label-verification-production.up.railway.app/
 
 **Where to look first:**
 - `docs/roadmap.md` — the master plan: phases, features, user stories, acceptance criteria.

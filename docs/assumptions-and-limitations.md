@@ -53,6 +53,19 @@ The honest version of what this prototype does, doesn't do, and where it cuts co
 - The app **must** function with `USE_MOCK_EXTRACTION=true` even when no Gemini key is configured. Hard requirement for demo reliability; verified in CI.
 - Braintrust is **lazy-initialized**. Without `BRAINTRUST_API_KEY` the tracer is a true no-op; nothing leaks.
 
+## Production deployment path (TTB-internal network)
+
+The current prototype is on **Railway with the public Gemini API**. That's fine for take-home review — open network, model reachable. It would **not** survive a production deployment inside TTB's network: Marcus Williams (Interview Notes 2024) flagged that "our network blocks outbound traffic to a lot of domains" and that the previous scanning-vendor pilot lost half its features to firewall blocks on cloud ML endpoints.
+
+**Recommended production path: Azure OpenAI in a FedRAMP region, reached via Azure Private Link** ([research note](research/2026-05-18-firewall-fallback.md) for the full option matrix). TTB is already on Azure post-2019, the procurement path is paved, and the firewall exception is a single private endpoint to a Microsoft-internal IP — not "let half the internet through."
+
+**This requires zero code changes to the verifier.** Extraction is already abstracted behind `LabelExtractionService` (interface in `lib/services/label-extraction.service.ts`); `GeminiLabelExtractionService` is one of two implementations today and would become one of three when an `AzureOpenAILabelExtractionService` is added. The orchestrator and the deterministic comparators are provider-agnostic.
+
+Two production-only items remain out of scope until TTB selects a provider:
+
+- The Azure OpenAI implementation itself (one file, ~150 lines mirroring the Gemini service).
+- FedRAMP / authorization-to-operate paperwork. Estimated at 12–18 months per Marcus's 2019 migration anecdote — that's an organizational path, not an engineering one.
+
 ## Domestic sake
 
 - Reuses the shared schema in MVP. Wine-like optional fields (vintage, appellation, grape varietals) are evaluated only if entered. A full sake-specific rule set is deferred.

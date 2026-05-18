@@ -47,6 +47,33 @@ the API route calls. It composes extraction, commodity routing,
 verification, and persistence. Swapping it for a LangGraph state machine
 later does not require touching the rest of the codebase.
 
+## Extraction provider seam
+
+`lib/services/label-extraction.service.ts` defines a single interface:
+
+```ts
+interface LabelExtractionService {
+  extract(input: LabelExtractionInput): Promise<ExtractedLabel>;
+}
+```
+
+Two implementations ship today — `GeminiLabelExtractionService` and
+`MockLabelExtractionService` — selected at request time by
+`resolveExtractionMode(env)`. **The orchestrator and every downstream
+verification rule are provider-agnostic**: they consume `ExtractedLabel`,
+not a model response.
+
+This matters for the production-deployment path called out in
+`assumptions-and-limitations.md` → "Production deployment path
+(TTB-internal network)". When TTB selects a network-reachable provider
+(most likely Azure OpenAI inside their FedRAMP Azure tenant), the
+swap is a single new file implementing the interface plus a one-line
+addition to `resolveExtractionMode`. Nothing else changes — no comparator
+edits, no schema migration, no UI changes, no eval rewrites.
+
+See `docs/research/2026-05-18-firewall-fallback.md` for the full
+provider-option matrix that motivated keeping this seam clean.
+
 ## Data flow per verification
 
 1. UI submits `application` (typed) + `images` (uploaded payload) to

@@ -16,7 +16,8 @@
     "test:e2e": "playwright test",
     "benchmark": "tsx scripts/model-benchmark.ts",
     "eval:quick": "tsx scripts/run-fixture-evals.ts --quick",
-    "eval:full": "tsx scripts/run-fixture-evals.ts"
+    "eval:full": "tsx scripts/run-fixture-evals.ts",
+    "prep:tabc": "tsx scripts/tabc-prepare-batch.ts"
   },
   "dependencies": {
     "@google/genai": "^1.52.0",

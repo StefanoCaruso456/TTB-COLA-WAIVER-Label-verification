@@ -12,9 +12,12 @@ export function getExtractionService(
   }
   return new GeminiLabelExtractionService({
     apiKey: env.GEMINI_API_KEY as string,
-    // Default lite variant: ~2x faster decode than gemini-2.5-flash with
-    // negligible accuracy loss on structured OCR. Override with the env var
-    // back to gemini-2.5-flash if a corpus shows accuracy regressions.
-    model: env.GEMINI_MODEL ?? "gemini-2.5-flash-lite",
+    // Default reverted to gemini-2.5-flash after gemini-2.5-flash-lite
+    // returned "model not found" on the deployed Google AI API endpoint
+    // (the lite variant may need a dated id like
+    // gemini-2.5-flash-lite-preview-06-17 depending on tier). Operators
+    // who want lite can opt in explicitly via GEMINI_MODEL once they
+    // confirm the right id for their account.
+    model: env.GEMINI_MODEL ?? "gemini-2.5-flash",
   });
 }

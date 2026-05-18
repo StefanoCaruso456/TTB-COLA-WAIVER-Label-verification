@@ -1,6 +1,6 @@
 # Feature Spec — Phase 5: Async queue and worker
 
-**Status:** Approved
+**Status:** Done — implementation shipped; see `docs/roadmap.md` Phase 5 row and `README.md` "Features shipped" table.
 **Owner:** Stefano
 **Last updated:** 2026-05-17
 **Approver:** Stefano (senior-engineer review; all open questions resolved in "Decisions locked").

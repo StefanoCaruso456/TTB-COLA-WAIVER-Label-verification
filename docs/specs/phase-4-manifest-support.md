@@ -1,6 +1,6 @@
 # Feature Spec — Phase 4: Manifest support
 
-**Status:** Approved
+**Status:** Done — implementation shipped; see `docs/roadmap.md` Phase 4 row and `README.md` "Features shipped" table.
 **Owner:** Stefano
 **Last updated:** 2026-05-17
 **Approver:** Stefano (open questions resolved by senior-engineer review; see "Decisions locked" section).

@@ -967,12 +967,12 @@ What you (Stefano) need to do, by phase. Most items take 5–15 minutes.
 |---|---|---|---|
 | 0 | Roadmap (this doc) | Stefano | _pending_ |
 | 0 | Phase 0 spec | Stefano | _pending_ |
-| 1 | Phase 1 spec | Stefano | _pending_ |
-| 2 | Phase 2 spec | Stefano | _pending_ |
-| 3 | Phase 3 spec | Stefano | _pending_ |
-| 4 | Phase 4 spec | Stefano | _pending_ |
-| 5 | Phase 5 spec | Stefano | _pending_ |
-| 6 | Phase 6 spec | Stefano | Approved 2026-05-18 — see `docs/specs/phase-6-batch-ui-first-row-fast-path.md` |
+| 1 | Phase 1 spec | Stefano | Done — see `docs/specs/phase-1-eval-infrastructure.md` |
+| 2 | Phase 2 spec | Stefano | Done — see `docs/specs/phase-2-data-model-and-storage.md` |
+| 3 | Phase 3 spec | Stefano | Done — see `docs/specs/phase-3-synchronous-batch.md` |
+| 4 | Phase 4 spec | Stefano | Done — see `docs/specs/phase-4-manifest-support.md` |
+| 5 | Phase 5 spec | Stefano | Done — see `docs/specs/phase-5-async-queue.md` |
+| 6 | Phase 6 spec | Stefano | Done 2026-05-18 — see `docs/specs/phase-6-batch-ui-first-row-fast-path.md` |
 | 7 | Phase 7 spec | Stefano | _pending_ |
 
 ---

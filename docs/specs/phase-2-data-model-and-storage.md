@@ -1,6 +1,6 @@
 # Feature Spec — Phase 2: Data Model and Storage Abstraction
 
-**Status:** Approved
+**Status:** Done — implementation shipped; see `docs/roadmap.md` Phase 2 row and `README.md` "Features shipped" table.
 **Owner:** Stefano
 **Last updated:** 2026-05-16
 

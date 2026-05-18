@@ -1,6 +1,6 @@
 # Feature Spec — Phase 0: Foundation
 
-**Status:** Approved
+**Status:** Done — implementation shipped; see `docs/roadmap.md` Phase 0 row and `README.md` "Features shipped" table.
 **Owner:** Stefano
 **Last updated:** 2026-05-16
 

@@ -93,7 +93,7 @@ Evidence-based. Files referenced exist on `claude/setup-tbb-remote-access-OljNd`
 - `POST /api/verify` — single-label verification: schema-validates application → calls extraction → runs comparators → persists `VerificationRecord`.
 - `GET /api/verifications` and `GET /api/verifications/[id]` and `PATCH /api/verifications/[id]` (notes, reviewer status, assignee).
 - 4 commodities routed through `lib/services/commodity-router.ts`: wine, sake, distilled spirits, malt beverage.
-- Comparator suite in `lib/verification/`: brand, ABV, volume, country-origin, warning, plus commodity-specific aggregators.
+- Comparator suite in `lib/verification/`: brand, ABV, volume, country-origin, warning (text), warning-typography (bold + relative sizing, per req #15 Tier 1+2), plus commodity-specific aggregators.
 - Mock extraction service (`USE_MOCK_EXTRACTION=true`) with sample scenarios in `data/samples/`.
 - Submissions tab at `/` — list view with status pipeline (`pending → in_review → approved → rejected`), inline-editable reviewer status and assignee, four filters, search.
 - `New verification` form at `/new` — single label, multi-angle image upload (treated as one submission).

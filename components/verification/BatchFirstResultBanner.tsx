@@ -43,7 +43,7 @@ export function BatchFirstResultBanner(props: Props) {
           <p className="text-sm text-sky-900">
             <span className="font-semibold">Scanning first label…</span>{" "}
             <span className="text-sky-700">
-              The first row's result will appear here as soon as it finishes.
+              The first row&apos;s result will appear here as soon as it finishes.
             </span>
           </p>
         </div>

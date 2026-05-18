@@ -44,6 +44,7 @@ The honest version of what this prototype does, doesn't do, and where it cuts co
 
 - **Brief target:** results in ~5 s ("nobody's going to use it" if slower — Sarah Chen interview).
 - **Where we land:** the Gemini call itself is ~3–4 s with thinking disabled. End-to-end (`verifyTotalMs`) sits at ~7–8 s on labels with many fields because vision-token processing + structured output is inherently slow at the prompt size required to cover 21 OCR targets.
+- **First-row fast path (Phase 6).** For batch uploads, POST `/api/batches` now blocks just long enough to verify row 1 (~5–7 s on `gemini-2.5-flash-lite`) and returns it inline; rows 2…N continue in the background worker. The user sees row 1's full report immediately above the progress bar instead of waiting for the whole batch.
 - **Documented levers** (deferred, not measured): aggressively downscale images to 800 px; trim the JSON example from the prompt; loosen the "every target must appear" rule.
 - The 5 s SLO is tracked as a 1/0 Braintrust score (`verification.latencyUnder5s` and `extraction.latencyUnder5s`) so the Monitor view shows the hit rate over time without a separate metrics stack.
 
@@ -60,7 +61,6 @@ The honest version of what this prototype does, doesn't do, and where it cuts co
 
 - LangGraph / agent orchestration. Plain TypeScript calls are sufficient.
 - Cancellation of an in-flight batch (queued → canceled transition). Roadmap US-6.5; follow-up PR.
-- Full Phase 6 UI polish (drag-drop, image previews, inline drill-down).
 - Idempotency keys + DB-side advisory locks (Phase 7).
 - Custom model training, RAG over CFR text, end-to-end legal rules engine.
 - PDF / structured CSV export of the verification report.

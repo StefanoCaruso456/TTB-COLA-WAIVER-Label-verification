@@ -11,6 +11,23 @@ interface Props {
   onClose: () => void;
 }
 
+/**
+ * Public entry point. Conditionally mounts the inner panel so React tears
+ * down its state when `recordId` becomes null — avoids the
+ * "set-state-in-effect" antipattern that a single component with a
+ * "reset on null" effect would introduce.
+ */
+export function BatchDrillDownPanel({ recordId, onClose }: Props) {
+  if (!recordId) return null;
+  return (
+    <BatchDrillDownPanelInner
+      key={recordId}
+      recordId={recordId}
+      onClose={onClose}
+    />
+  );
+}
+
 // The existing GET /api/verifications/:id returns `{ record: ... }` with the
 // raw DB shape — reportJson / extractedJson are unknown blobs. We narrow at
 // the consumer boundary and treat schema mismatches as a render-time error
@@ -26,32 +43,27 @@ interface RawDetailResponse {
 
 /**
  * Slide-in panel for drilling into a single submission's report without
- * navigating away from the batch detail page. Fetches the verification
- * record lazily on open and caches it in component state so re-opening
- * the same row doesn't re-fetch.
- *
- * Keeps the route stack intact — reviewers can click multiple rows in
- * sequence and the URL never changes, so a refresh always returns to the
- * batch view, not the last-opened report.
+ * navigating away from the batch detail page. Mounted by the outer
+ * `BatchDrillDownPanel` only when `recordId` is non-null, so its state is
+ * naturally torn down on close and we don't need a reset-on-null effect.
  */
-export function BatchDrillDownPanel({ recordId, onClose }: Props) {
+function BatchDrillDownPanelInner({
+  recordId,
+  onClose,
+}: {
+  recordId: string;
+  onClose: () => void;
+}) {
   const [data, setData] = useState<{
     report: VerificationReport;
     extractedLabel?: ExtractedLabel;
     fileName?: string;
   } | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!recordId) {
-      setData(null);
-      setError(null);
-      return;
-    }
     let cancelled = false;
-    setLoading(true);
-    setError(null);
     fetch(`/api/verifications/${recordId}`)
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -80,15 +92,12 @@ export function BatchDrillDownPanel({ recordId, onClose }: Props) {
   }, [recordId]);
 
   useEffect(() => {
-    if (!recordId) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [recordId, onClose]);
-
-  if (!recordId) return null;
+  }, [onClose]);
 
   return (
     <>

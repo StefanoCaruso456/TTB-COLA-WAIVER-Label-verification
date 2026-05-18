@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AppShell } from "@/components/layout/AppShell";
@@ -126,12 +127,12 @@ export default async function BatchDetailPage({
     <AppShell>
       <BatchProgressPoller status={batch.status} />
       <div className="mb-6 space-y-2">
-        <a
+        <Link
           href="/"
           className="text-xs text-slate-500 hover:underline"
         >
           ← Back to Submissions
-        </a>
+        </Link>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold">Batch</h1>
           <span className="font-mono text-sm text-slate-600">{batch.id}</span>

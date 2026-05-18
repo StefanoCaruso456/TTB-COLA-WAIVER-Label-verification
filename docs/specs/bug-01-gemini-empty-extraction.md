@@ -1,6 +1,6 @@
 # Feature Spec — BUG-01: Gemini under-extraction on foreign-market labels
 
-**Status:** Draft (pending owner approval; implementation drafted alongside on `claude/check-this-out-IgkvC` per session instruction)
+**Status:** Closed (2026-05-17) — root cause identified, fix shipped across PRs #10–#17, live confirmation logged in `docs/bugs.md` BUG-01 (Braintrust trace `b1037cd3`).
 **Owner:** Stefano
 **Last updated:** 2026-05-17
 

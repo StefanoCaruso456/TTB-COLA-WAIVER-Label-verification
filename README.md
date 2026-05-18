@@ -2,7 +2,7 @@
 
 > AI-assisted alcohol-beverage label verification — a TTB COLAs Online-style reviewer experience that extracts label content with Gemini and runs deterministic field-by-field compliance checks against the application.
 
-Built as a take-home for the AI-Powered Alcohol Label Verification project. Single-label and batch (up to 200 labels per submission) workflows. End-to-end observability via Braintrust. ~3–4 s per Gemini extraction in production.
+Built as a take-home for the AI-Powered Alcohol Label Verification project. Single-label and batch (up to 200 labels per submission) workflows. End-to-end observability via Braintrust. Code-default Gemini extraction targets ~3–4 s on `gemini-2.5-flash-lite`; current production deploy runs ~5.7 s due to a Railway env-var override pinned to the heavier `gemini-2.5-flash` variant ([BUG-02](docs/bugs.md)). One-variable fix pending.
 
 ## 🔗 Live demo
 

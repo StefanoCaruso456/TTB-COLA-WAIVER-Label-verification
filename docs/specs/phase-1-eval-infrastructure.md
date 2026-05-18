@@ -1,6 +1,6 @@
 # Feature Spec — Phase 1: Eval Infrastructure
 
-**Status:** Approved
+**Status:** Done — implementation shipped; see `docs/roadmap.md` Phase 1 row and `README.md` "Features shipped" table.
 **Owner:** Stefano
 **Last updated:** 2026-05-16
 

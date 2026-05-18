@@ -1,8 +1,6 @@
 # TTB LabelCheck AI — Pre-Research & Architecture Decisions
 
-> Frozen pre-build planning document. The companion files in this folder
-> (`architecture.md`, `requirements-map.md`, `assumptions-and-limitations.md`)
-> derive from these decisions.
+> **Frozen pre-build planning document.** Captures the architecture and library-choice reasoning *before any code was written*, preserved for context. **For current state, read [`architecture.md`](architecture.md), [`requirements-checklist.md`](requirements-checklist.md), and [`final-deliverable.md`](final-deliverable.md) instead** — those reflect what actually shipped.
 
 ## 1. Product Goal
 

@@ -1,6 +1,6 @@
 # Feature Spec — Government Warning typography enforcement (Tier 1 + Tier 2)
 
-**Status:** Approved (2026-05-18) — scope confirmed in chat; closes the implementation half of `docs/research/2026-05-18-gov-warning-typography-enforcement.md`.
+**Status:** Done (2026-05-18) — shipped in PR #34 (commit `417266c`, merged into `main` as `77e3dc3`). Closes the implementation half of `docs/research/2026-05-18-gov-warning-typography-enforcement.md`. Operator eval-calibration of severity is still pending — see "Manual prerequisites" below; until that runs, requirement #15 stays 🟡 in `docs/requirements-checklist.md`.
 **Owner:** Stefano
 **Last updated:** 2026-05-18
 

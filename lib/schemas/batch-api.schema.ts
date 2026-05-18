@@ -25,11 +25,51 @@ function resolveMaxBatchFiles(): number {
 
 export const MAX_BATCH_FILES = resolveMaxBatchFiles();
 
-/** Response shape for POST /api/batches (Phase 5: 202 accepted). */
+/**
+ * Phase 6 first-row fast-path payload. Embedded in the POST response so the
+ * UI can render row 1's verification report inline (mirrors what
+ * /api/verify returns) while rows 2…N continue in the background worker.
+ *
+ * `report` and `extractedLabel` are intentionally typed as `unknown` here —
+ * the route hands them through verbatim from runVerification; the consuming
+ * component re-parses against the single-label result schema, so adding
+ * shape constraints in two places would just create drift.
+ */
+export const firstSubmissionSuccessSchema = z.object({
+  ok: z.literal(true),
+  submissionId: z.string(),
+  fileName: z.string(),
+  verificationRecordId: z.string(),
+  report: z.unknown(),
+  extractedLabel: z.unknown(),
+});
+export const firstSubmissionFailureSchema = z.object({
+  ok: z.literal(false),
+  submissionId: z.string(),
+  fileName: z.string(),
+  errorCode: z.string(),
+  errorMessage: z.string(),
+});
+export const firstSubmissionResultSchema = z.discriminatedUnion("ok", [
+  firstSubmissionSuccessSchema,
+  firstSubmissionFailureSchema,
+]);
+export type FirstSubmissionResultPayload = z.infer<
+  typeof firstSubmissionResultSchema
+>;
+
+/** Response shape for POST /api/batches. */
 export const createBatchAcceptedResponseSchema = z.object({
   batchId: z.string(),
   status: batchStatusSchema,
   totalCount: z.number().int().nonnegative(),
+  /**
+   * Phase 6: present when the route ran the first submission inline.
+   * Absent on empty batches or if the inline run was skipped for a reason
+   * the route documents (none currently — kept optional for forward
+   * compatibility with cancel-before-start or admin-replay flows).
+   */
+  firstSubmission: firstSubmissionResultSchema.optional(),
 });
 export type CreateBatchAcceptedResponse = z.infer<
   typeof createBatchAcceptedResponseSchema
@@ -87,6 +127,13 @@ export const getBatchResponseSchema = z.object({
     completedCount: z.number().int().nonnegative(),
     failedCount: z.number().int().nonnegative(),
     canceledCount: z.number().int().nonnegative(),
+    // Phase 6 derived progress fields. processingCount excludes terminal
+    // states; percentComplete counts both completed and failed as "done"
+    // (matches what a reviewer expects from a progress bar that includes
+    // partial-failure batches).
+    processingCount: z.number().int().nonnegative(),
+    percentComplete: z.number().int().min(0).max(100),
+    firstSubmissionId: z.string().nullable().optional(),
   }),
   submissions: z.array(submissionResponseSchema),
 });

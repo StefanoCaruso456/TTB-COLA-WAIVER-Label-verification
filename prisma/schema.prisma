@@ -63,6 +63,13 @@ model Batch {
   failedCount     Int      @default(0)
   canceledCount   Int      @default(0)
 
+  // Phase 6 fast path: the BatchSubmission processed synchronously in the
+  // POST handler so the UI can render its result inline while the rest of
+  // the batch runs in the worker. Null on legacy batches and on batches
+  // where row 1 hasn't completed yet (it's set after the inline run).
+  firstSubmissionId String?           @unique
+  firstSubmission   BatchSubmission?  @relation("BatchFirstSubmission", fields: [firstSubmissionId], references: [id])
+
   submissions     BatchSubmission[]
 
   @@index([createdAt])
@@ -97,6 +104,10 @@ model BatchSubmission {
   applicationJson     Json
 
   verificationRecord  VerificationRecord?
+
+  // Reverse of `Batch.firstSubmission`. Lets us check "is this submission
+  // the first-row fast-path row for its batch?" without scanning siblings.
+  firstSubmissionOfBatch Batch? @relation("BatchFirstSubmission")
 
   @@index([batchId])
   @@index([status])

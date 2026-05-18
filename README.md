@@ -26,7 +26,6 @@ Open in a browser — no login. Try the **Single label** flow first (drop in a w
 - [Repo layout](#repo-layout)
 - [Approach & key decisions](#approach--key-decisions)
 - [Assumptions & limitations](#assumptions--limitations)
-- [Roadmap & status](#roadmap--status)
 - [License](#license)
 
 ---
@@ -325,24 +324,6 @@ The honest version: [`docs/assumptions-and-limitations.md`](docs/assumptions-and
 - **In-process worker.** A process restart strands in-flight `processing` rows; startup recovery requeues them on next boot (≤10 min delay). A separate Railway worker service is the right long-term move.
 - **Backpressure race.** Two concurrent POSTs can both pass the 500-row queue check. Acceptable for prototype; DB-side advisory lock is Phase 7.
 - **Domestic sake reuses shared schema.** Wine-like optional fields evaluated only when entered. A full sake-specific rule set is deferred.
-
----
-
-## Roadmap & status
-
-| Phase | Status |
-|---|:---:|
-| 0 — Foundation (Next.js scaffold, mock extractor, single-label verify) | ✓ Done |
-| 1 — Eval infrastructure (fixture harness + CI gate) | ✓ Done |
-| 2 — Data model & storage abstraction (Prisma + `FileStorage`) | ✓ Done |
-| 3 — Synchronous batch (≤5 files, inline applications) | ✓ Done |
-| 4 — Manifest support (CSV + JSON, header aliases, validation) | ✓ Done |
-| 5 — Async queue + worker (200-file batches, polling UI) | ✓ Done |
-| 6 — Batch UI polish (drag-drop, previews, inline drill-down) | Partial |
-| 7 — Hardening + scale test (idempotency, advisory locks, load test) | Deferred |
-| 8 — Operational polish (cost dashboard, alerting) | Optional |
-
-Plus: **Braintrust telemetry** end-to-end (spec at `docs/specs/braintrust-telemetry.md`). Open bugs: none (BUG-01 closed, see `docs/bugs.md`).
 
 ---
 

@@ -47,10 +47,14 @@ When a file, function, structure, or doc layout is adopted from another open-sou
 When a coherent unit of work finishes (whatever you'd call "done" — feature shipped, bug fixed, spec landed):
 
 1. **Push** the current branch to origin. Don't wait to be asked.
-2. **Ensure a PR is open** against `main`. If one already exists for the branch (open or in review), the push auto-updates it — confirm in the reply with the PR URL. If none exists, open one with the standard PR template (Summary / What landed / Test plan).
-3. **Reply** with the PR URL so the operator can click straight through.
+2. **Verify PR state** by calling `mcp__github__list_pull_requests` (or `pull_request_read`) — do **not** assume. A previously-open PR may have been merged or closed between turns.
+3. **Decide based on what you find**:
+   - PR open against this branch → the push auto-updated it. Reply with the URL.
+   - PR closed or merged → the new commits are stranded. Open a fresh PR for them.
+   - No PR ever opened → open one with the standard PR template (Summary / What landed / Test plan).
+4. **Reply with the PR URL** so the operator can click straight through.
 
-This rule overrides the harness default "don't create a PR unless asked" for this project. The expectation is durable: every completed task ends in a push + a live PR.
+This rule overrides the harness default "don't create a PR unless asked" for this project. The expectation is durable: every completed task ends in a push + a live PR. Verification of PR state is the load-bearing step — skipping it strands commits silently (this has happened twice; do not let it happen again).
 
 ## Stack notes
 

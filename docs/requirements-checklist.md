@@ -103,11 +103,18 @@ Every 🟡 in the table gets a paragraph here. If you're closing a gap, update b
 
 ### #15 — Strict GOVERNMENT WARNING formatting
 
-**Gap.** Jenny called out that the warning must be (a) exact text, (b) all-caps for the `GOVERNMENT WARNING:` prefix, (c) bold typeface, (d) not buried in tiny font. The current `compare-warning.ts` validates (a) and (b). Bold-detection and font-size enforcement require reading Gemini's bounding-box + style metadata, which we don't currently extract.
+**Gap.** Jenny called out that the warning must be (a) exact text, (b) all-caps for the `GOVERNMENT WARNING:` prefix, (c) bold typeface, (d) not below the mm-minimum in 27 CFR 16.22. The current `compare-warning.ts` validates (a) and (b). (c) requires Gemini to return typography metadata we don't currently ask for; (d) requires a physical-scale calibration step (px → mm) that the current pipeline cannot do honestly.
 
-**What flips it to ✅ Met.** Spec + implement a `compare-warning-typography.ts` helper that consumes the bounding-box and style hints from a future extended `ExtractedLabel` shape. Estimated ~half a day including a Gemini-prompt change to request style information and a fixture-eval to verify accuracy. Documented as deferred in `assumptions-and-limitations.md` because it's reviewer-augmenting rather than reviewer-replacing — the current `human_review_required` verdict ensures a human catches font violations.
+**What flips it to ✅ Met.** A tiered plan, not a single PR:
 
-**Owner.** Engineering, post-prototype. Tracked here so it doesn't get lost.
+- **Tier 1** — bold detection on the prefix (~half day, eval-gated).
+- **Tier 2** — relative font-size check (warning vs body text) (~half day, eval-gated).
+- **Tier 3** — absolute mm-compliance per 27 CFR 16.22. **Deliberately out of scope** for the prototype — requires either a reference object in submissions (UX-hostile), image DPI metadata (usually missing on phone photos), or homography-based scale recovery (weeks of research). Keep the `human_review_required` handoff and document the carve-out honestly.
+- **Tier 4** — anti-evasion heuristics (low contrast, decorative-font OCR defeat). Separate spec, lower priority.
+
+Full decomposition with effort, risk, and recommended order in [`docs/research/2026-05-18-gov-warning-typography-enforcement.md`](research/2026-05-18-gov-warning-typography-enforcement.md).
+
+**Owner.** Engineering, post-prototype. Tier 1+2 are the achievable wins; Tier 3 stays a documented reviewer responsibility by design.
 
 ---
 

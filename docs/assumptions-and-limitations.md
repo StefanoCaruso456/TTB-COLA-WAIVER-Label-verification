@@ -24,7 +24,7 @@ The honest version of what this prototype does, doesn't do, and where it cuts co
 - Brand matching is normalized (lowercase, whitespace, punctuation) and similarity-scored; phonetic fuzzy matching is out of scope.
 - Volume normalization covers mL/L; uncommon units (fl oz, cL) are best-effort.
 - ABV / proof handles the 2× relationship for distilled spirits with a ~0.1 absolute-percentage-point tolerance.
-- Government-warning typography (uppercase prefix, exact wording) is matched literally. Bold/font-size enforcement is **not** automated.
+- Government-warning typography: exact wording and uppercase prefix (27 CFR 16.21) are matched literally. **Bold-weight detection and absolute mm-size compliance (27 CFR 16.22) are not automated** and surface as `human_review_required`. The mm-size check is the load-bearing limit — it would require physical-scale calibration the current pipeline cannot do honestly (no DPI metadata, no reference object). Tiered plan to close the bold-weight gap (Tier 1+2) without overreaching on mm-compliance (Tier 3, deliberately reviewer-side) lives in `docs/research/2026-05-18-gov-warning-typography-enforcement.md`.
 
 ## Storage
 

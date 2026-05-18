@@ -77,7 +77,7 @@
 | 12 | Extract country of origin (imports) | Functional — fields | Brief | ✅ Met | `compare-country-origin.ts` |
 | 13 | Extract Government Warning text | Functional — fields | Brief | ✅ Met | `compare-warning.ts` — required-fragment match |
 | 14 | Tolerant matching (case / punctuation) | Functional — behavior | Dave | ✅ Met | `lib/verification/normalize.ts` — whitespace, smart-quote, similarity threshold 0.85 |
-| 15 | Strict GOV WARNING formatting (bold, font size, all-caps prefix) | Functional — behavior | Jenny | 🟡 Partial | `compare-warning.ts` enforces text only; bold/font surfaces as `human_review_required` |
+| 15 | Strict GOV WARNING formatting (bold, font size, all-caps prefix) | Functional — behavior | Jenny | 🟡 Partial (T1+T2 shipped, awaiting eval) | `compare-warning.ts` (text) + `compare-warning-typography.ts` (bold + relative sizing). Severity defaults to `needs_review`; flip to `error` via env after operator eval-calibration. T3 (absolute mm) stays reviewer-side by design. |
 | 16 | Wine, beer, spirits coverage | Functional — behavior | Brief | ✅ Met | All three commodities have schemas + comparators + fixtures |
 | 17 | Standalone prototype — no COLA integration | Constraint | Marcus | ✅ Met | No outbound to TTB systems |
 | 18 | No PII / sensitive storage | Constraint | Marcus | ✅ Met | Only business entity + commercial product data persisted; demo-data-only deploy notice |
@@ -103,18 +103,22 @@ Every 🟡 in the table gets a paragraph here. If you're closing a gap, update b
 
 ### #15 — Strict GOVERNMENT WARNING formatting
 
-**Gap.** Jenny called out that the warning must be (a) exact text, (b) all-caps for the `GOVERNMENT WARNING:` prefix, (c) bold typeface, (d) not below the mm-minimum in 27 CFR 16.22. The current `compare-warning.ts` validates (a) and (b). (c) requires Gemini to return typography metadata we don't currently ask for; (d) requires a physical-scale calibration step (px → mm) that the current pipeline cannot do honestly.
+**Gap (originally).** Jenny called out four sub-checks: (a) exact text, (b) all-caps `GOVERNMENT WARNING:` prefix, (c) bold typeface, (d) below the mm-minimum in 27 CFR 16.22. We shipped (a) and (b); (c) and (d) were unaddressed.
 
-**What flips it to ✅ Met.** A tiered plan, not a single PR:
+**What changed.** Tier 1 (bold detection on the prefix) and Tier 2 (relative font-size check, warning vs brand name) are now **implemented** per `docs/specs/gov-warning-typography-t1-t2.md`:
 
-- **Tier 1** — bold detection on the prefix (~half day, eval-gated).
-- **Tier 2** — relative font-size check (warning vs body text) (~half day, eval-gated).
-- **Tier 3** — absolute mm-compliance per 27 CFR 16.22. **Deliberately out of scope** for the prototype — requires either a reference object in submissions (UX-hostile), image DPI metadata (usually missing on phone photos), or homography-based scale recovery (weeks of research). Keep the `human_review_required` handoff and document the carve-out honestly.
-- **Tier 4** — anti-evasion heuristics (low contrast, decorative-font OCR defeat). Separate spec, lower priority.
+- New `lib/verification/compare-warning-typography.ts` returns 0–2 additional `VerificationCheck`s per verification.
+- Schema extended: `ExtractedLabel.normalizedFields.governmentWarningTypography` (optional, backward-compatible).
+- Wired into `verification.service.ts` for all three commodities.
+- Severity defaults to `needs_review` for both checks; env vars `GOV_WARNING_BOLD_SEVERITY` / `GOV_WARNING_SIZING_SEVERITY` flip to `error` once operator validates Gemini accuracy via `npm run eval:full`.
 
-Full decomposition with effort, risk, and recommended order in [`docs/research/2026-05-18-gov-warning-typography-enforcement.md`](research/2026-05-18-gov-warning-typography-enforcement.md).
+**Why this is still 🟡 not ✅.** The implementation is shipped; the **calibration step** (operator runs eval against real Gemini, confirms ≥ 95% bold-detection accuracy, flips severity to `error`) hasn't happened yet. Until that runs, both checks fire at `needs_review` — they augment reviewer workflow but don't fail labels on their own. Once the eval confirms accuracy and the env flip lands, requirement #15 flips to ✅ and moves to §8.
 
-**Owner.** Engineering, post-prototype. Tier 1+2 are the achievable wins; Tier 3 stays a documented reviewer responsibility by design.
+**Tier 3 stays out of scope by design.** Absolute mm-compliance per 27 CFR 16.22 requires physical-scale calibration (DPI metadata, reference object, or homography) the current pipeline cannot do honestly. Documented in `assumptions-and-limitations.md` + `docs/research/2026-05-18-gov-warning-typography-enforcement.md` (§5, Tier 3). The new `shared.warningStyle.absoluteSize` check surfaces this responsibility to the reviewer.
+
+**Tier 4 (anti-evasion heuristics)** — separate spec, lower priority.
+
+**Owner.** Operator runs the eval; engineering wires the severity flip via env. Both are minutes of work once the eval lands.
 
 ---
 

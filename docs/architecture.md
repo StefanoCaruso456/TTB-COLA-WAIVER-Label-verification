@@ -362,7 +362,8 @@ All under `lib/verification/`. Pure deterministic helpers — no I/O, no async, 
 | `compare-abv.ts` | ABV (% or proof), ±0.1 pp tolerance, 2× proof handling | `error` on mismatch, `warning` on missing |
 | `compare-volume.ts` | Net contents (mL / L / fl oz / cL → mL), ±0.5 mL tolerance | `error` on mismatch |
 | `compare-country-origin.ts` | Country, gated by `sourceOfProduct` | `error` for imports if missing; `n/a` for domestic |
-| `compare-warning.ts` | Government warning text fragments + `GOVERNMENT WARNING:` prefix uppercase | `error` on missing fragment; `human_review_required` for bold/font enforcement (not automated) |
+| `compare-warning.ts` | Government warning text fragments + `GOVERNMENT WARNING:` prefix uppercase | `error` on missing fragment |
+| `compare-warning-typography.ts` | Tier 1 (bold-prefix detection) + Tier 2 (warning vs brand-name relative font sizing) per req #15 spec | configurable via `GOV_WARNING_BOLD_SEVERITY` / `GOV_WARNING_SIZING_SEVERITY` env vars; defaults to `needs_review` pending operator eval-calibration |
 | `compare-wine-fields.ts` | Wine: producer, appellation, varietals, vintage | per-field |
 | `compare-distilled-spirits-fields.ts` | Spirits: distillery, age statement, proof | per-field |
 | `compare-malt-fields.ts` | Malt beverage: ABV, class/type, government warning | per-field |

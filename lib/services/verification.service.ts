@@ -14,6 +14,10 @@ import { compareBrand } from "@/lib/verification/compare-brand";
 import { compareAlcoholContent } from "@/lib/verification/compare-abv";
 import { compareVolumes } from "@/lib/verification/compare-volume";
 import { compareGovernmentWarning } from "@/lib/verification/compare-warning";
+import {
+  compareWarningTypography,
+  resolveTypographyConfig,
+} from "@/lib/verification/compare-warning-typography";
 import { compareCountryOfOrigin } from "@/lib/verification/compare-country-origin";
 import { evaluateImageQuality } from "@/lib/verification/image-quality";
 import { compareWineFields } from "@/lib/verification/compare-wine-fields";
@@ -267,21 +271,65 @@ export function verifyApplication(
     evidenceText: fields.governmentWarning?.evidenceText,
   });
 
-  // Bold/font/layout — human review required (we can't reliably automate it).
-  checks.push({
-    id: "shared.warningStyle",
-    fieldKey: "warningStyle",
-    label: "Warning typeface, size, and contrast",
-    expectedValue:
-      "Government warning typeface, size, and contrast meet regulatory requirements.",
-    extractedValue: null,
-    status: "needs_review",
-    severity: "warning",
-    source: "human_review",
-    automationLevel: "human_review_required",
-    reason:
-      "OCR cannot reliably validate typography, point size, or contrast. Reviewer should confirm bold, size, and readability.",
-  });
+  // Requirement #15 Tier 1 + Tier 2: bold-prefix detection + relative
+  // sizing (vs the brand name as a same-label reference). When the
+  // extractor provides typography metadata, these checks supersede the
+  // legacy "human review required" fallback below. When they don't (legacy
+  // records, mock extractor without typography fields, or Gemini failing
+  // to populate the new fields), we fall through to the human-review
+  // check so the reviewer is still on the hook for the unknowns —
+  // including absolute mm-compliance per 27 CFR 16.22 (Tier 3, out of
+  // scope; see docs/research/2026-05-18-gov-warning-typography-enforcement.md).
+  const typographyConfig = resolveTypographyConfig();
+  const typographyChecks = compareWarningTypography(
+    fields.governmentWarningTypography,
+    fields.brandName,
+    typographyConfig,
+  );
+  if (typographyChecks.boldPrefix) checks.push(typographyChecks.boldPrefix);
+  if (typographyChecks.relativeSizing)
+    checks.push(typographyChecks.relativeSizing);
+
+  const anyTypographyAutomated =
+    typographyChecks.boldPrefix !== null ||
+    typographyChecks.relativeSizing !== null;
+
+  if (!anyTypographyAutomated) {
+    // Legacy fallback — no typography signal from the extractor, so the
+    // reviewer is responsible for bold + size verification too.
+    checks.push({
+      id: "shared.warningStyle",
+      fieldKey: "warningStyle",
+      label: "Warning typeface, size, and contrast",
+      expectedValue:
+        "Government warning typeface, size, and contrast meet regulatory requirements.",
+      extractedValue: null,
+      status: "needs_review",
+      severity: "warning",
+      source: "human_review",
+      automationLevel: "human_review_required",
+      reason:
+        "OCR did not return typography metadata; reviewer should confirm bold, size, and readability.",
+    });
+  } else {
+    // Tier 3 (absolute mm-compliance) is still reviewer-side even when
+    // Tier 1+2 are automated. Surface a narrower human-review check so
+    // reviewers know the remaining responsibility.
+    checks.push({
+      id: "shared.warningStyle.absoluteSize",
+      fieldKey: "warningStyle",
+      label: "Warning meets minimum mm size for container (27 CFR 16.22)",
+      expectedValue:
+        "Type size satisfies the mm minimum scaled by container volume.",
+      extractedValue: null,
+      status: "needs_review",
+      severity: "warning",
+      source: "human_review",
+      automationLevel: "human_review_required",
+      reason:
+        "Absolute font size in mm requires physical-scale calibration not currently automated. Reviewer confirms against 27 CFR 16.22.",
+    });
+  }
 
   // Image quality.
   const imageQualityResult = evaluateImageQuality(extractedLabel.imageQuality);

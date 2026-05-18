@@ -42,6 +42,16 @@ When a file, function, structure, or doc layout is adopted from another open-sou
 - All development happens on the assigned feature branch documented in the project handoff (currently `claude/setup-tbb-remote-access-OljNd`).
 - Never push to `main` directly. Open a PR.
 
+### Push & PR — always
+
+When a coherent unit of work finishes (whatever you'd call "done" — feature shipped, bug fixed, spec landed):
+
+1. **Push** the current branch to origin. Don't wait to be asked.
+2. **Ensure a PR is open** against `main`. If one already exists for the branch (open or in review), the push auto-updates it — confirm in the reply with the PR URL. If none exists, open one with the standard PR template (Summary / What landed / Test plan).
+3. **Reply** with the PR URL so the operator can click straight through.
+
+This rule overrides the harness default "don't create a PR unless asked" for this project. The expectation is durable: every completed task ends in a push + a live PR.
+
 ## Stack notes
 
 - Next.js 16, React 19, Vitest 4, Playwright 1.60.0, Prisma 5.22.

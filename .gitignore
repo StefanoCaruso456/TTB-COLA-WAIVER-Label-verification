@@ -19,6 +19,10 @@
 # batch file storage (default local dev path)
 /.local/
 
+# tabc-prepare-batch.ts output (generated PNGs + manifest; source CSV is
+# committed but the converted artifacts are not)
+/data/external/tabc-prepared/
+
 # next.js
 /.next/
 /out/

@@ -1,0 +1,226 @@
+[
+  {
+    "_async_scoring_state": null,
+    "_pagination_key": "p07641127342601469953",
+    "_xact_id": "1000197186603549760",
+    "audit_data": [
+      {
+        "_xact_id": "1000197186603281225",
+        "audit_data": {
+          "action": "upsert"
+        },
+        "metadata": {},
+        "source": "api"
+      },
+      {
+        "_xact_id": "1000197186603548949",
+        "audit_data": {
+          "action": "merge",
+          "path": [
+            "output"
+          ]
+        },
+        "metadata": {},
+        "source": "api"
+      },
+      {
+        "_xact_id": "1000197186603549760",
+        "audit_data": {
+          "action": "merge",
+          "from": null,
+          "path": [
+            "metrics"
+          ],
+          "to": {
+            "end": 1779088601.206
+          }
+        },
+        "metadata": {},
+        "source": "api"
+      }
+    ],
+    "classifications": null,
+    "comments": null,
+    "context": {},
+    "created": "2026-05-18T07:16:35.504Z",
+    "error": null,
+    "expected": null,
+    "facets": null,
+    "id": "c42d05b2-0b26-4b69-a1da-a9ab9dbbeb74",
+    "input": {
+      "imageCount": 1,
+      "productType": "wine",
+      "promptHash": "9ddba3b1c339"
+    },
+    "is_root": false,
+    "log_id": "g",
+    "metadata": {
+      "mockExtraction": false,
+      "model": "gemini-2.5-flash",
+      "promptHash": "9ddba3b1c339"
+    },
+    "metrics": {
+      "completionTokens": 1204,
+      "end": 1779088601.206,
+      "estimated_cost_usd": 0.0034,
+      "geminiCallMs": 5700,
+      "promptTokens": 1326,
+      "start": 1779088595.504,
+      "totalTokens": 2530
+    },
+    "org_id": "9c3e8db8-3b35-4a3a-905b-9c17cb142468",
+    "origin": null,
+    "output": {
+      "finishReason": "STOP",
+      "inferredProductType": "wine",
+      "inferredProductTypeConfidence": 0.98,
+      "normalizedFieldKeys": [
+        "brandName",
+        "dbaTradeName",
+        "fancifulName",
+        "classOrTypeDesignation",
+        "netContents",
+        "alcoholContent",
+        "nameAndAddress",
+        "countryOfOrigin",
+        "governmentWarning",
+        "foreignLanguageText",
+        "specialWordingOrDesigns",
+        "vintageYear",
+        "grapeVarietals",
+        "appellation",
+        "sulfiteDeclaration"
+      ],
+      "rawTextTruncated": ""
+    },
+    "project_id": "bfc9644f-d6a1-4311-8f08-01e40ba8d4d7",
+    "root_span_id": "3d52c1c2-89b4-4898-bd6b-8785fd73fc44",
+    "scores": {
+      "extraction.alcoholContentPresent": 1,
+      "extraction.brandNamePresent": 1,
+      "extraction.classOrTypePresent": 1,
+      "extraction.fieldCoverage": 0.87,
+      "extraction.governmentWarningPresent": 1,
+      "extraction.imageReadability": 1,
+      "extraction.latencyUnder5s": 0,
+      "extraction.netContentsPresent": 1
+    },
+    "span_attributes": {
+      "exec_counter": 1,
+      "name": "gemini.extract",
+      "type": "llm"
+    },
+    "span_id": "1116573b-b068-4072-88b8-8199f75d8bf3",
+    "span_parents": [
+      "3d52c1c2-89b4-4898-bd6b-8785fd73fc44"
+    ],
+    "tags": null
+  },
+  {
+    "_async_scoring_state": null,
+    "_pagination_key": "p07641127338270785536",
+    "_xact_id": "1000197186603549760",
+    "audit_data": [
+      {
+        "_xact_id": "1000197186603215144",
+        "audit_data": {
+          "action": "upsert"
+        },
+        "metadata": {},
+        "source": "api"
+      },
+      {
+        "_xact_id": "1000197186603281225",
+        "audit_data": {
+          "action": "merge",
+          "path": [
+            "metadata"
+          ]
+        },
+        "metadata": {},
+        "source": "api"
+      },
+      {
+        "_xact_id": "1000197186603549760",
+        "audit_data": {
+          "action": "merge",
+          "path": [
+            "output"
+          ]
+        },
+        "metadata": {},
+        "source": "api"
+      }
+    ],
+    "classifications": null,
+    "comments": null,
+    "context": {},
+    "created": "2026-05-18T07:16:35.475Z",
+    "error": null,
+    "expected": null,
+    "facets": null,
+    "id": "f934e0cf-5eb5-409f-bb37-dc390c36f4c4",
+    "input": {
+      "applicationType": "certificate_of_label_approval",
+      "brandNameExpected": "bfgzdvCSxz",
+      "imageCount": 1,
+      "isResubmission": false,
+      "productType": "wine",
+      "sourceOfProduct": "domestic"
+    },
+    "is_root": true,
+    "log_id": "g",
+    "metadata": {
+      "applicationType": "certificate_of_label_approval",
+      "commodityConflict": false,
+      "extractionMode": "gemini",
+      "imageCount": 1,
+      "inferredProductType": "wine",
+      "isResubmission": false,
+      "originalSizeKB": 585,
+      "productType": "wine",
+      "recordId": "cmpavf2ch000014cfzvjhkhsv",
+      "resizedSizeKB": 67,
+      "sourceOfProduct": "domestic"
+    },
+    "metrics": {
+      "end": 1779088601.258,
+      "imagePreprocessMs": 27,
+      "start": 1779088595.475,
+      "verifyTotalMs": 5782
+    },
+    "org_id": "9c3e8db8-3b35-4a3a-905b-9c17cb142468",
+    "origin": null,
+    "output": {
+      "auditSummary": {
+        "errors": 2,
+        "needsReview": 1,
+        "notApplicable": 2,
+        "passing": 3,
+        "totalChecks": 8,
+        "warnings": 1
+      },
+      "inferredProductType": "wine",
+      "overallConfidence": 0.93,
+      "overallStatus": "fail",
+      "recordId": "cmpavf2ch000014cfzvjhkhsv"
+    },
+    "project_id": "bfc9644f-d6a1-4311-8f08-01e40ba8d4d7",
+    "root_span_id": "3d52c1c2-89b4-4898-bd6b-8785fd73fc44",
+    "scores": {
+      "verification.brandNameMatched": 0.11,
+      "verification.errorRatio": 0.75,
+      "verification.latencyUnder5s": 0,
+      "verification.passes": 0,
+      "verification.warningRatio": 0.88
+    },
+    "span_attributes": {
+      "exec_counter": 0,
+      "name": "verify",
+      "type": "task"
+    },
+    "span_id": "3d52c1c2-89b4-4898-bd6b-8785fd73fc44",
+    "span_parents": null,
+    "tags": null
+  }
+]

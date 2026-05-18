@@ -6,7 +6,7 @@ Bugs surfaced from evals (unit, integration, fixture, live) against the verifier
 
 **Last eval run:** _none yet — Phase 1 introduces the fixture eval suite._
 
-**Last live observation:** 2026-05-17 — BUG-01 closed after live confirmation. Latency / cost incident on `gemini-2.5-flash` (62k thoughtsTokens pushing calls to 237s and $0.16) found via Braintrust and fixed by `@google/genai` 0.7 → 1.52 upgrade in PR #17 (trace `b1037cd3`: 7.6s end-to-end, $0.0046/call, brandNameMatched=1).
+**Last live observation:** 2026-05-18 — BUG-02 opened. Latency SLO breach on a real wine-back-label trace (Falanghina di Sant'Agata dei Goti, 2005, imported by Vitis Imports). Gemini call 5.7s, total verify 5.78s, end-to-end UX ~7.7s. Failed both `extraction.latencyUnder5s` and `verification.latencyUnder5s` scores. Root cause hypothesis: deployed env runs `gemini-2.5-flash` instead of the code-default `gemini-2.5-flash-lite`. Trace `3d52c1c2-89b4-4898-bd6b-8785fd73fc44`.
 
 ## Severity legend
 
@@ -19,7 +19,23 @@ Bugs surfaced from evals (unit, integration, fixture, live) against the verifier
 
 ## Open bugs
 
-_(none — see "Closed bugs" below.)_
+### 🟡 BUG-02 — Production Gemini calls exceed the 5s latency SLO; deployed env runs heavier model than code defaults to
+
+- **Case observed (live, 2026-05-18):** Falanghina di Sant'Agata dei Goti DOC, 2005 vintage, "Mustilli" producer, 13% ABV, 750 mL, white wine, bottled in Italy, imported by Vitis Imports (Santa Monica CA). Real photograph of the back label (585 KB original → 67 KB after `sharp` resize). Application brand was a random test string (`bfgzdvCSxz`), so the brand-match score is not meaningful — the latency and config observations are. Record id `cmpavf2ch000014cfzvjhkhsv`. Trace [`3d52c1c2-89b4-4898-bd6b-8785fd73fc44`](https://www.braintrust.dev/app/Gauntlet_AI/p/ttb-cola-verifier/trace?object_type=project_logs&object_id=bfc9644f-d6a1-4311-8f08-01e40ba8d4d7&r=3d52c1c2-89b4-4898-bd6b-8785fd73fc44&s=3d52c1c2-89b4-4898-bd6b-8785fd73fc44).
+- **Symptom (observed):**
+  - `gemini.extract` span: `geminiCallMs: 5700` (5.7s), `completionTokens: 1204`, `promptTokens: 1326`, `totalTokens: 2530`, `estimated_cost_usd: $0.0034`.
+  - `verify` parent span: `verifyTotalMs: 5782` (5.78s); end-to-end UX reported ~7.7s (delta = client upload + render).
+  - Scores: `extraction.latencyUnder5s: 0` and `verification.latencyUnder5s: 0` — **both SLO scores failed.**
+  - README claims `~3–4 s per Gemini extraction in production`. Observed is ~50% over that.
+- **Root cause hypothesis:** trace metadata shows `model: gemini-2.5-flash`, but `lib/services/extraction-service-factory.ts:18` defaults to `gemini-2.5-flash-lite`. That means the deployed Railway env has `GEMINI_MODEL=gemini-2.5-flash` set, overriding the lite default the codebase recommends. `flash` is the heavier variant; the lite variant is documented in the README (line 73) as "~2× faster decode" — switching back would land in the 2.5–3s range matching the README claim.
+- **Why this matters:** the `latencyUnder5s` SLO is the public success metric exposed in the Braintrust Monitor view (README line 145). Every real call from production right now is failing that metric. For a take-home reviewer who follows the Braintrust link, the "% under SLO" tile reads as 0% — bad signal-to-noise even though the code is fine and the fix is one env-var change.
+- **Suspected area:** Railway → Variables → `GEMINI_MODEL`. Not code. Not in any current PR.
+- **Fix scope (proposed, evals required before close):**
+  1. **First — gather more data.** N=1 is not a pattern. Need at least 5 more real traces at different times of day + image sizes to confirm `flash` is consistently slower than the SLO; could also be Gemini-side cold-start.
+  2. **If pattern confirmed:** unset `GEMINI_MODEL` on Railway (so the code default `flash-lite` takes over) **or** set it explicitly to `gemini-2.5-flash-lite`. Redeploy. Run the same wine label through. Confirm `geminiCallMs < 5000` and the SLO scores flip to 1.
+  3. **Update the README** to either (a) drop the "~3–4 s per Gemini extraction in production" claim, or (b) state it conditionally on the lite variant.
+  4. **Add an integration test or alerting** that fails when the deployed model differs from the codebase default without an explicit override comment in `extraction-service-factory.ts`.
+- **Important context:** this trace is from the **pre-PR-#34 deployment**. The Gemini response's `normalizedFieldKeys` list does NOT contain `governmentWarningTypography`, confirming the production runtime is still serving the code from before req #15 Tier 1+2 shipped. Whatever fix lands for BUG-02 must be re-validated after PR #34 actually deploys — the Tier 1+2 prompt changes add tokens to the request, which could shift latency further.
 
 ---
 
